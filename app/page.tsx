@@ -54,7 +54,7 @@ export default function Home() {
     modelo: "",
     numeroMotor: "",
     operador: "", // Adicionado campo operador no estado do novo motor
-    observacoes: "", // Adicionado campo observações no estado do novo motor
+    observacoes: "", // Adicionado campo observacoes no estado do novo motor
     servicosSelecionados: [] as string[],
     valoresServicos: {} as Record<string, string>,
     lote: "",
@@ -141,6 +141,13 @@ export default function Home() {
 
       console.log("[v0] Lotes carregados:", todosLotes?.length || 0)
 
+      const lotesFormatados =
+        todosLotes?.map((lote) => ({
+          id: lote.id,
+          nome: lote.nome,
+          data: lote.data_fechamento, // Campo correto do banco
+        })) || []
+
       // Carregar motores
       const { data: motoresData, error: motoresError } = await supabase
         .from("motores")
@@ -155,7 +162,7 @@ export default function Home() {
         motoresData?.map((motor) => ({
           id: motor.id,
           modelo: motor.modelo,
-          numeroMotor: motor.numero_motor,
+          numeroMotor: motor.codigo, // Usar campo codigo em vez de numero_motor
           operador: motor.operador || "",
           observacoes: motor.observacoes || "",
           servicos: [], // Array vazio por enquanto
@@ -163,7 +170,7 @@ export default function Home() {
           data: motor.created_at.split("T")[0],
         })) || []
 
-      setLotes(todosLotes || [])
+      setLotes(lotesFormatados)
       setMotores(motoresFormatados)
       setConnectionStatus("online")
       console.log("[v0] Dados carregados com sucesso - status: online")
@@ -272,7 +279,7 @@ export default function Home() {
           const loteInserido: Lote = {
             id: insertedData[0].id,
             nome: insertedData[0].nome,
-            data: insertedData[0].data_fechamento,
+            data: insertedData[0].data_fechamento, // Usar o campo correto do retorno
           }
 
           setLotes([...lotes, loteInserido])
@@ -372,7 +379,7 @@ export default function Home() {
     const loteAtualizado = {
       ...loteEditando,
       nome: loteEditandoDados.nome,
-      data: loteEditandoDados.data,
+      data: loteEditandoDados.data, // Manter formato original da data
     }
 
     if (isOnlineMode && supabase && connectionStatus === "online") {

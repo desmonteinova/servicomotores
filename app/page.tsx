@@ -145,7 +145,7 @@ export default function Home() {
     "Revisão simples",
     "Serviços mão de obra",
     "Desmontagem do motor",
-    "Troca de junta comando de valvulas",
+    "Troca da junta tampa de valvulas",
     "Troca comando de valvulas",
     "Retífica comando de valvulas",
     "Troca de junta do cabeçote",

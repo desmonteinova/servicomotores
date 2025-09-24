@@ -241,22 +241,19 @@ export default function Home() {
 
     console.log("[v0] Tentando adicionar lote:", novoLote)
 
-    const lote: Lote = {
-      id: Date.now().toString(),
-      nome: novoLote.nome,
-      data: novoLote.data,
-    }
-
     if (isOnlineMode && supabase && connectionStatus === "online") {
       try {
-        console.log("[v0] Inserindo lote no Supabase:", lote)
+        console.log("[v0] Inserindo lote no Supabase com dados:", {
+          nome: novoLote.nome,
+          data_fechamento: novoLote.data,
+        })
 
         const { data: insertedData, error } = await supabase
           .from("lotes")
           .insert([
             {
-              nome: lote.nome,
-              data_fechamento: lote.data, // Campo correto conforme o schema
+              nome: novoLote.nome,
+              data_fechamento: novoLote.data, // Campo correto conforme o schema
             },
           ])
           .select()
@@ -268,8 +265,18 @@ export default function Home() {
 
         console.log("[v0] Lote inserido com sucesso no Supabase:", insertedData)
 
+        // Usar o lote retornado do Supabase com ID correto
         if (insertedData && insertedData[0]) {
-          lote.id = insertedData[0].id
+          const loteInserido: Lote = {
+            id: insertedData[0].id,
+            nome: insertedData[0].nome,
+            data: insertedData[0].data_fechamento,
+          }
+
+          setLotes([...lotes, loteInserido])
+          setNovoLote({ nome: "", data: "" })
+          console.log("[v0] Lote adicionado ao estado local:", loteInserido)
+          return
         }
       } catch (error) {
         console.error("[v0] Erro ao salvar lote no Supabase:", error)
@@ -278,9 +285,16 @@ export default function Home() {
       }
     }
 
+    // Fallback para modo offline ou erro
+    const lote: Lote = {
+      id: Date.now().toString(),
+      nome: novoLote.nome,
+      data: novoLote.data,
+    }
+
     setLotes([...lotes, lote])
     setNovoLote({ nome: "", data: "" })
-    console.log("[v0] Lote adicionado ao estado local:", lote)
+    console.log("[v0] Lote adicionado ao estado local (offline):", lote)
   }
 
   const adicionarMotor = async () => {

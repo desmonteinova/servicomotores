@@ -102,8 +102,8 @@ export default function Home() {
   const [novoMotor, setNovoMotor] = useState({
     modelo: "",
     numeroMotor: "",
-    operador: "", // Adicionado campo operador no estado do novo motor
-    observacoes: "", // Adicionado campo observacoes no estado do novo motor
+    operador: "",
+    observacoes: "",
     servicosSelecionados: [] as string[],
     valoresServicos: {} as Record<string, string>,
     lote: "",
@@ -112,11 +112,16 @@ export default function Home() {
   const [motorEditando, setMotorEditando] = useState<Motor | null>(null)
   const [motorEditandoServicos, setMotorEditandoServicos] = useState<string[]>([])
   const [motorEditandoValores, setMotorEditandoValores] = useState<Record<string, string>>({})
-  const [motorEditandoOperador, setMotorEditandoOperador] = useState("") // Adicionado estado para edição do operador
-  const [motorEditandoObservacoes, setMotorEditandoObservacoes] = useState("") // Adicionado estado para edição das observações
+  const [motorEditandoOperador, setMotorEditandoOperador] = useState("")
+  const [motorEditandoObservacoes, setMotorEditandoObservacoes] = useState("")
 
   const [filtroNumeroMotor, setFiltroNumeroMotor] = useState("")
   const [filtroModeloVeiculo, setFiltroModeloVeiculo] = useState("")
+
+  const [loteMotoresVisivel, setLoteMotoresVisivel] = useState<string | null>(null)
+
+  const [paginaAtual, setPaginaAtual] = useState(1)
+  const motoresPorPagina = 10
 
   const [modalNovoLoteAberto, setModalNovoLoteAberto] = useState(false)
   const [modalNovoMotorAberto, setModalNovoMotorAberto] = useState(false)
@@ -556,10 +561,6 @@ export default function Home() {
 
   const cancelarEdicaoMotor = () => {
     setMotorEditando(null)
-    setMotorEditandoServicos([])
-    setMotorEditandoValores({})
-    setMotorEditandoOperador("") // Reset do estado de edição do operador
-    setMotorEditandoObservacoes("") // Reset do estado de edição das observações
   }
 
   const removerLote = async (id: string) => {
@@ -658,9 +659,15 @@ export default function Home() {
     return matchNumeroMotor && matchModeloVeiculo
   })
 
+  const totalPaginas = Math.ceil(motoresFiltrados.length / motoresPorPagina)
+  const indiceInicial = (paginaAtual - 1) * motoresPorPagina
+  const indiceFinal = indiceInicial + motoresPorPagina
+  const motoresPaginados = motoresFiltrados.slice(indiceInicial, indiceFinal)
+
   const limparFiltros = () => {
     setFiltroNumeroMotor("")
     setFiltroModeloVeiculo("")
+    setPaginaAtual(1) // Reset página ao limpar filtros
   }
 
   const temFiltrosAtivos = filtroNumeroMotor !== "" || filtroModeloVeiculo !== ""
@@ -904,7 +911,10 @@ export default function Home() {
                 <Input
                   id="filtro-numero"
                   value={filtroNumeroMotor}
-                  onChange={(e) => setFiltroNumeroMotor(e.target.value)}
+                  onChange={(e) => {
+                    setFiltroNumeroMotor(e.target.value)
+                    setPaginaAtual(1) // Reset página ao filtrar
+                  }}
                   placeholder="Ex: 001, 002..."
                 />
               </div>
@@ -913,7 +923,10 @@ export default function Home() {
                 <Input
                   id="filtro-modelo"
                   value={filtroModeloVeiculo}
-                  onChange={(e) => setFiltroModeloVeiculo(e.target.value)}
+                  onChange={(e) => {
+                    setFiltroModeloVeiculo(e.target.value)
+                    setPaginaAtual(1) // Reset página ao filtrar
+                  }}
                   placeholder="Ex: Honda, Toyota..."
                 />
               </div>
@@ -941,6 +954,50 @@ export default function Home() {
             )}
           </CardContent>
         </Card>
+
+        {temFiltrosAtivos && motoresFiltrados.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                Resultados da Busca
+                <Badge variant="outline">{motoresFiltrados.length} motor(es) encontrado(s)</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-96 overflow-y-auto space-y-2 pr-2">
+                {motoresFiltrados.map((motor) => {
+                  const valorTotal = motor.servicos.reduce((sum, servico) => sum + servico.valor, 0)
+
+                  return (
+                    <div key={motor.id} className="p-3 border rounded-lg bg-muted/30">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium">{motor.modelo}</div>
+                          <div className="text-sm text-muted-foreground mb-1">Motor {motor.numeroMotor}</div>
+                          <div className="text-sm text-blue-600 font-medium mb-2">Operador: {motor.operador}</div>
+
+                          {motor.observacoes && (
+                            <div className="text-sm text-muted-foreground italic mb-2 p-2 bg-background rounded">
+                              {motor.observacoes}
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="secondary">{getLoteNome(motor.lote)}</Badge>
+                            <span className="text-sm font-bold text-primary">
+                              Total: R$ {valorTotal.toLocaleString("pt-BR")}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {(lotes.length > 0 || motores.length > 0) && (
           <Card>
@@ -979,6 +1036,36 @@ export default function Home() {
                           <span className="text-muted-foreground">{lote.data}</span>
                         </div>
                       </div>
+
+                      {lote.totalMotores > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLoteMotoresVisivel(loteMotoresVisivel === lote.id ? null : lote.id)}
+                          className="w-full mt-2"
+                        >
+                          {loteMotoresVisivel === lote.id ? "Ocultar Motores" : "Ver Todos os Motores"}
+                        </Button>
+                      )}
+
+                      {loteMotoresVisivel === lote.id && (
+                        <div className="mt-3 space-y-2 max-h-60 overflow-y-auto border rounded p-2">
+                          {motores
+                            .filter((m) => m.lote === lote.id)
+                            .map((motor) => {
+                              const valorTotal = motor.servicos.reduce((sum, servico) => sum + servico.valor, 0)
+                              return (
+                                <div key={motor.id} className="p-2 bg-muted rounded text-sm">
+                                  <div className="font-medium">
+                                    {motor.modelo} - Motor {motor.numeroMotor}
+                                  </div>
+                                  <div className="text-muted-foreground">Operador: {motor.operador}</div>
+                                  <div className="font-bold text-primary">R$ {valorTotal.toLocaleString("pt-BR")}</div>
+                                </div>
+                              )
+                            })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1270,12 +1357,13 @@ export default function Home() {
                   </div>
                 ) : (
                   <>
-                    {motoresFiltrados.length > 5 && (
+                    {motoresFiltrados.length > motoresPorPagina && (
                       <div className="text-sm text-muted-foreground text-center py-2 border-b">
-                        Exibindo {motoresFiltrados.length} motores • Role para ver todos
+                        Página {paginaAtual} de {totalPaginas} • {motoresFiltrados.length} motores total
                       </div>
                     )}
-                    {motoresFiltrados.map((motor) => {
+
+                    {motoresPaginados.map((motor) => {
                       const valorTotal = motor.servicos.reduce((sum, servico) => sum + servico.valor, 0)
 
                       return (
@@ -1416,41 +1504,64 @@ export default function Home() {
                         </div>
                       )
                     })}
+
+                    {totalPaginas > 1 && (
+                      <div className="flex items-center justify-center gap-2 pt-4 border-t">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPaginaAtual(Math.max(1, paginaAtual - 1))}
+                          disabled={paginaAtual === 1}
+                        >
+                          Anterior
+                        </Button>
+
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
+                            const pageNum = i + 1
+                            return (
+                              <Button
+                                key={pageNum}
+                                variant={paginaAtual === pageNum ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setPaginaAtual(pageNum)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {pageNum}
+                              </Button>
+                            )
+                          })}
+                          {totalPaginas > 5 && (
+                            <>
+                              <span className="text-muted-foreground">...</span>
+                              <Button
+                                variant={paginaAtual === totalPaginas ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setPaginaAtual(totalPaginas)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {totalPaginas}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPaginaAtual(Math.min(totalPaginas, paginaAtual + 1))}
+                          disabled={paginaAtual === totalPaginas}
+                        >
+                          Próxima
+                        </Button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
             </CardContent>
           </Card>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Relatório Resumido
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-primary">{lotes.length}</div>
-                <div className="text-sm text-muted-foreground">Lotes Ativos</div>
-              </div>
-              <div className="text-center p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-primary">{totalMotores}</div>
-                <div className="text-sm text-muted-foreground">Total Motores</div>
-              </div>
-              <div className="text-center p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-primary">R$ {totalGasto.toLocaleString("pt-BR")}</div>
-                <div className="text-sm text-muted-foreground">Gasto Total</div>
-              </div>
-              <div className="text-center p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-primary">R$ {gastoMedio.toLocaleString("pt-BR")}</div>
-                <div className="text-sm text-muted-foreground">Gasto Médio</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         <Dialog open={modalExclusao.aberto} onOpenChange={cancelarExclusao}>
           <DialogContent className="sm:max-w-md">

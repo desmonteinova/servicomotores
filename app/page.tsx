@@ -3,15 +3,15 @@
 import { useState, useEffect } from "react"
 import { supabase, isSupabaseConfigured, testSupabaseConnection } from "@/lib/supabase"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTrigger, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, Search, X, Wifi, WifiOff, Database, TrendingUp, FileText } from "lucide-react"
+import { Plus, Edit, Trash2, FileText, Search, Wifi, WifiOff, Database, X, TrendingUp, Eye } from "lucide-react"
 import SetupGuide from "@/components/setup-guide"
 
 interface Motor {
@@ -114,6 +114,9 @@ export default function Home() {
   const [motorEditandoValores, setMotorEditandoValores] = useState<Record<string, string>>({})
   const [motorEditandoOperador, setMotorEditandoOperador] = useState("")
   const [motorEditandoObservacoes, setMotorEditandoObservacoes] = useState("")
+
+  const [motorDetalhes, setMotorDetalhes] = useState<Motor | null>(null)
+  const [modalDetalhesAberto, setModalDetalhesAberto] = useState(false)
 
   const [filtroNumeroMotor, setFiltroNumeroMotor] = useState("")
   const [filtroModeloVeiculo, setFiltroModeloVeiculo] = useState("")
@@ -474,7 +477,7 @@ export default function Home() {
         ])
 
         if (motorError) throw motorError
-        console.log("[v0] Motor salvo no Supabase com sucesso") // Debug sucesso salvamento
+        console.log("[v0] Motor salvo no Supabase com sucesso") // Debug salvamento
 
         // Os serviços serão mantidos apenas no localStorage por enquanto
       } catch (error) {
@@ -647,6 +650,16 @@ export default function Home() {
     setMotorEditandoObservacoes("")
   }
 
+  const abrirDetalhesMotor = (motor: Motor) => {
+    setMotorDetalhes(motor)
+    setModalDetalhesAberto(true)
+  }
+
+  const fecharDetalhesMotor = () => {
+    setMotorDetalhes(null)
+    setModalDetalhesAberto(false)
+  }
+
   const removerLote = async (id: string) => {
     if (isOnlineMode && supabase && connectionStatus === "online") {
       try {
@@ -786,143 +799,7 @@ export default function Home() {
   }
 
   const imprimirRelatorioLote = (loteId: string) => {
-    const lote = lotes.find((l) => l.id === loteId)
-    if (!lote) return
-
-    const motoresDoLote = motores.filter((m) => m.lote === loteId)
-    const gastoTotalLote = motoresDoLote.reduce(
-      (sum, m) => sum + m.servicos.reduce((servicoSum, servico) => servicoSum + servico.valor, 0),
-      0,
-    )
-
-    const conteudoImpressao = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Relatório - ${lote.nome}</title>
-          <style>
-            @media print {
-              body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
-              .no-print { display: none !important; }
-            }
-            body { font-family: Arial, sans-serif; line-height: 1.4; color: #333; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .company-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-            .report-title { font-size: 18px; color: #666; }
-            .lote-info { background: #f5f5f5; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
-            .lote-info h2 { margin: 0 0 10px 0; font-size: 20px; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-            .info-item { display: flex; justify-content: space-between; }
-            .info-label { font-weight: bold; }
-            .motores-section { margin-top: 30px; }
-            .motor-card { border: 1px solid #ddd; margin-bottom: 15px; padding: 15px; border-radius: 5px; }
-            .motor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-            .motor-modelo { font-size: 16px; font-weight: bold; }
-            .motor-numero { color: #666; font-size: 14px; }
-            .motor-operador { color: #2563eb; font-size: 14px; font-weight: 500; margin-top: 5px; }
-            .motor-observacoes { color: #555; font-size: 13px; font-style: italic; margin: 8px 0; padding: 8px; background: #f9f9f9; border-radius: 4px; }
-            .servicos-list { margin: 10px 0; }
-            .servico-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dotted #ccc; }
-            .servico-nome { color: #555; }
-            .servico-valor { font-weight: bold; }
-            .motor-total { text-align: right; font-size: 16px; font-weight: bold; color: #2563eb; margin-top: 10px; }
-            .resumo-final { background: #e3f2fd; padding: 20px; margin-top: 30px; border-radius: 5px; text-align: center; }
-            .resumo-final h3 { margin: 0 0 15px 0; font-size: 18px; }
-            .total-final { font-size: 24px; font-weight: bold; color: #1976d2; }
-            .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="company-name">Inova Ecopeças</div>
-            <div class="report-title">Relatório de Gastos por Lote Fechado</div>
-          </div>
-
-          <div class="lote-info">
-            <h2>${lote.nome}</h2>
-            <div class="info-grid">
-              <div class="info-item">
-                <span class="info-label">Data do Lote:</span>
-                <span>${lote.data}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Total de Motores:</span>
-                <span>${motoresDoLote.length}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Gasto Total:</span>
-                <span>R$ ${gastoTotalLote.toLocaleString("pt-BR")}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">Média por Motor:</span>
-                <span>R$ ${motoresDoLote.length > 0 ? (gastoTotalLote / motoresDoLote.length).toLocaleString("pt-BR") : "0"}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="motores-section">
-            <h3>Detalhamento por Motor</h3>
-            ${motoresDoLote
-              .map((motor) => {
-                const valorTotalMotor = motor.servicos.reduce((sum, servico) => sum + servico.valor, 0)
-                return `
-                <div class="motor-card">
-                  <div class="motor-header">
-                    <div>
-                      <div class="motor-modelo">${motor.modelo}</div>
-                      <div class="motor-numero">Motor Nº ${motor.numeroMotor}</div>
-                      <div class="motor-operador">Operador: ${motor.operador}</div>
-                    </div>
-                  </div>
-                  ${motor.observacoes ? `<div class="motor-observacoes">Observações: ${motor.observacoes}</div>` : ""}
-                  <div class="servicos-list">
-                    ${motor.servicos
-                      .map(
-                        (servico) => `
-                      <div class="servico-item">
-                        <span class="servico-nome">${servico.tipo}</span>
-                        <span class="servico-valor">R$ ${servico.valor.toLocaleString("pt-BR")}</span>
-                      </div>
-                    `,
-                      )
-                      .join("")}
-                  </div>
-                  <div class="motor-total">
-                    Total do Motor: R$ ${valorTotalMotor.toLocaleString("pt-BR")}
-                  </div>
-                </div>
-              `
-              })
-              .join("")}
-          </div>
-
-          <div class="resumo-final">
-            <h3>Resumo Final</h3>
-            <div class="total-final">
-              Total Geral: R$ ${gastoTotalLote.toLocaleString("pt-BR")}
-            </div>
-          </div>
-
-          <div class="footer">
-            <p>Relatório gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}</p>
-            <p>Inova Ecopeças - Sistema de Controle de Gastos com Motores</p>
-          </div>
-        </body>
-      </html>
-    `
-
-    // Abrir nova janela para impressão
-    const janelaImpressao = window.open("", "_blank")
-    if (janelaImpressao) {
-      janelaImpressao.document.write(conteudoImpressao)
-      janelaImpressao.document.close()
-      janelaImpressao.focus()
-
-      // Aguardar carregamento e imprimir
-      setTimeout(() => {
-        janelaImpressao.print()
-      }, 500)
-    }
+    alert("Função de impressão será implementada em breve")
   }
 
   if (isLoading) {
@@ -1379,11 +1256,11 @@ export default function Home() {
                         Novo Motor
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[80vh]">
+                    <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw]">
                       <DialogHeader>
                         <DialogTitle>Adicionar Novo Motor</DialogTitle>
                       </DialogHeader>
-                      <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+                      <div className="max-h-[75vh] overflow-y-auto custom-scrollbar pr-2">
                         <div className="space-y-4">
                           <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -1429,7 +1306,7 @@ export default function Home() {
 
                           <div>
                             <Label>Serviços</Label>
-                            <div className="grid grid-cols-1 gap-3 mt-2 max-h-60 overflow-y-auto custom-scrollbar border rounded-lg p-3">
+                            <div className="grid grid-cols-1 gap-3 mt-2 max-h-80 overflow-y-auto custom-scrollbar border rounded-lg p-3">
                               {tiposServicos.map((servico) => (
                                 <div key={servico} className="space-y-2">
                                   <div className="flex items-center space-x-2">
@@ -1510,141 +1387,143 @@ export default function Home() {
                       const valorTotal = motor.servicos.reduce((sum, servico) => sum + servico.valor, 0)
 
                       return (
-                        <div key={motor.id} className="p-3 border rounded-lg">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="font-medium">{motor.modelo}</div>
-                              <div className="text-sm text-muted-foreground mb-1">Motor {motor.numeroMotor}</div>
-                              <div className="text-sm text-blue-600 font-medium mb-2">Operador: {motor.operador}</div>
-
-                              {motor.observacoes && (
-                                <div className="text-sm text-muted-foreground italic mb-2 p-2 bg-muted rounded">
-                                  {motor.observacoes}
-                                </div>
-                              )}
-
-                              <div className="space-y-1 mb-2">
-                                {motor.servicos.map((servico, index) => (
-                                  <div key={index} className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">{servico.tipo}</span>
-                                    <span className="font-medium">R$ {servico.valor.toLocaleString("pt-BR")}</span>
-                                  </div>
-                                ))}
-                              </div>
-
-                              <div className="flex items-center gap-2 mt-2">
-                                <Badge variant="secondary">{getLoteNome(motor.lote)}</Badge>
-                                <span className="text-sm font-bold text-primary">
-                                  Total: R$ {valorTotal.toLocaleString("pt-BR")}
-                                </span>
-                              </div>
+                        <div
+                          key={motor.id}
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex-1 grid grid-cols-4 gap-4 items-center">
+                            <div>
+                              <div className="text-sm text-muted-foreground">Número</div>
+                              <div className="font-medium">{motor.numeroMotor}</div>
                             </div>
-                            <div className="flex gap-1">
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="ghost" size="sm" onClick={() => iniciarEdicaoMotor(motor)}>
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl max-h-[80vh]">
-                                  <DialogHeader>
-                                    <DialogTitle>Editar Motor - {motor.modelo}</DialogTitle>
-                                  </DialogHeader>
-                                  <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-                                    <div className="space-y-4">
-                                      <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                          <Label>Modelo</Label>
-                                          <Input value={motor.modelo} disabled />
-                                        </div>
-                                        <div>
-                                          <Label>Número</Label>
-                                          <Input value={motor.numeroMotor} disabled />
-                                        </div>
-                                      </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground">Marca</div>
+                              <div className="font-medium">{motor.modelo}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground">Operador</div>
+                              <div className="font-medium">{motor.operador}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-muted-foreground">Custo</div>
+                              <div className="font-bold text-primary">R$ {valorTotal.toLocaleString("pt-BR")}</div>
+                            </div>
+                          </div>
 
+                          <div className="flex gap-1 ml-4">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => abrirDetalhesMotor(motor)}
+                              title="Ver detalhes dos serviços"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="ghost" size="sm" onClick={() => iniciarEdicaoMotor(motor)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw]">
+                                <DialogHeader>
+                                  <DialogTitle>Editar Motor - {motor.modelo}</DialogTitle>
+                                </DialogHeader>
+                                <div className="max-h-[75vh] overflow-y-auto custom-scrollbar pr-2">
+                                  <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
                                       <div>
-                                        <Label htmlFor="edit-operador">Operador Responsável</Label>
-                                        <Input
-                                          id="edit-operador"
-                                          value={motorEditandoOperador}
-                                          onChange={(e) => setMotorEditandoOperador(e.target.value)}
-                                          placeholder="Ex: João Silva"
-                                        />
+                                        <Label>Modelo</Label>
+                                        <Input value={motor.modelo} disabled />
                                       </div>
-
                                       <div>
-                                        <Label htmlFor="edit-observacoes">Observações</Label>
-                                        <Textarea
-                                          id="edit-observacoes"
-                                          value={motorEditandoObservacoes}
-                                          onChange={(e) => setMotorEditandoObservacoes(e.target.value)}
-                                          placeholder="Informações complementares sobre o motor..."
-                                          rows={3}
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <Label>Serviços</Label>
-                                        <div className="grid grid-cols-1 gap-3 mt-2 max-h-60 overflow-y-auto custom-scrollbar border rounded-lg p-3">
-                                          {tiposServicos.map((servico) => (
-                                            <div key={servico} className="space-y-2">
-                                              <div className="flex items-center space-x-2">
-                                                <Checkbox
-                                                  id={`edit-servico-${servico}`}
-                                                  checked={motorEditandoServicos.includes(servico)}
-                                                  onCheckedChange={(checked) =>
-                                                    toggleServicoEdicao(servico, checked as boolean)
-                                                  }
-                                                />
-                                                <Label htmlFor={`edit-servico-${servico}`} className="text-sm">
-                                                  {servico}
-                                                </Label>
-                                              </div>
-                                              {motorEditandoServicos.includes(servico) && (
-                                                <Input
-                                                  type="number"
-                                                  placeholder="Valor (R$)"
-                                                  value={motorEditandoValores[servico] || ""}
-                                                  onChange={(e) =>
-                                                    setMotorEditandoValores({
-                                                      ...motorEditandoValores,
-                                                      [servico]: e.target.value,
-                                                    })
-                                                  }
-                                                  className="ml-6 w-32"
-                                                />
-                                              )}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-
-                                      <div className="flex gap-2">
-                                        <Button onClick={salvarEdicaoMotor} className="flex-1">
-                                          Salvar Alterações
-                                        </Button>
-                                        <Button
-                                          variant="outline"
-                                          onClick={cancelarEdicaoMotor}
-                                          className="flex-1 bg-transparent"
-                                        >
-                                          Cancelar
-                                        </Button>
+                                        <Label>Número</Label>
+                                        <Input value={motor.numeroMotor} disabled />
                                       </div>
                                     </div>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
 
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => abrirModalExclusao("motor", motor.id, motor.numeroMotor)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                                    <div>
+                                      <Label htmlFor="edit-operador">Operador Responsável</Label>
+                                      <Input
+                                        id="edit-operador"
+                                        value={motorEditandoOperador}
+                                        onChange={(e) => setMotorEditandoOperador(e.target.value)}
+                                        placeholder="Ex: João Silva"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <Label htmlFor="edit-observacoes">Observações</Label>
+                                      <Textarea
+                                        id="edit-observacoes"
+                                        value={motorEditandoObservacoes}
+                                        onChange={(e) => setMotorEditandoObservacoes(e.target.value)}
+                                        placeholder="Informações complementares sobre o motor..."
+                                        rows={3}
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <Label>Serviços</Label>
+                                      <div className="grid grid-cols-1 gap-3 mt-2 max-h-80 overflow-y-auto custom-scrollbar border rounded-lg p-3">
+                                        {tiposServicos.map((servico) => (
+                                          <div key={servico} className="space-y-2">
+                                            <div className="flex items-center space-x-2">
+                                              <Checkbox
+                                                id={`edit-servico-${servico}`}
+                                                checked={motorEditandoServicos.includes(servico)}
+                                                onCheckedChange={(checked) =>
+                                                  toggleServicoEdicao(servico, checked as boolean)
+                                                }
+                                              />
+                                              <Label htmlFor={`edit-servico-${servico}`} className="text-sm">
+                                                {servico}
+                                              </Label>
+                                            </div>
+                                            {motorEditandoServicos.includes(servico) && (
+                                              <Input
+                                                type="number"
+                                                placeholder="Valor (R$)"
+                                                value={motorEditandoValores[servico] || ""}
+                                                onChange={(e) =>
+                                                  setMotorEditandoValores({
+                                                    ...motorEditandoValores,
+                                                    [servico]: e.target.value,
+                                                  })
+                                                }
+                                                className="ml-6 w-32"
+                                              />
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                      <Button onClick={salvarEdicaoMotor} className="flex-1">
+                                        Salvar Alterações
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        onClick={cancelarEdicaoMotor}
+                                        className="flex-1 bg-transparent"
+                                      >
+                                        Cancelar
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => abrirModalExclusao("motor", motor.id, motor.numeroMotor)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                       )
@@ -1707,6 +1586,106 @@ export default function Home() {
             </CardContent>
           </Card>
         </div>
+
+        <Dialog open={modalDetalhesAberto} onOpenChange={setModalDetalhesAberto}>
+          <DialogContent className="max-w-3xl max-h-[90vh] w-[90vw]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Detalhes do Motor - {motorDetalhes?.modelo}
+              </DialogTitle>
+            </DialogHeader>
+
+            {motorDetalhes && (
+              <div className="max-h-[75vh] overflow-y-auto custom-scrollbar pr-2">
+                <div className="space-y-6">
+                  {/* Informações básicas */}
+                  <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Número do Motor</div>
+                      <div className="font-semibold text-lg">{motorDetalhes.numeroMotor}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Modelo/Marca</div>
+                      <div className="font-semibold text-lg">{motorDetalhes.modelo}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Operador</div>
+                      <div className="font-semibold text-lg text-blue-600">{motorDetalhes.operador}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Data de Entrada</div>
+                      <div className="font-semibold text-lg text-green-600">{motorDetalhes.data}</div>
+                    </div>
+                  </div>
+
+                  {/* Observações */}
+                  {motorDetalhes.observacoes && (
+                    <div className="p-4 bg-background border rounded-lg">
+                      <div className="text-sm font-semibold text-muted-foreground mb-2">Observações</div>
+                      <div className="text-sm italic">{motorDetalhes.observacoes}</div>
+                    </div>
+                  )}
+
+                  {/* Lote */}
+                  <div className="p-4 bg-background border rounded-lg">
+                    <div className="text-sm font-semibold text-muted-foreground mb-2">Lote</div>
+                    <Badge variant="secondary" className="text-sm">
+                      {getLoteNome(motorDetalhes.lote)}
+                    </Badge>
+                  </div>
+
+                  {/* Serviços detalhados */}
+                  <div className="space-y-3">
+                    <div className="text-lg font-semibold text-foreground">Serviços Realizados</div>
+
+                    {motorDetalhes.servicos.length > 0 ? (
+                      <div className="space-y-2">
+                        {motorDetalhes.servicos.map((servico, index) => (
+                          <div
+                            key={index}
+                            className="flex justify-between items-center p-3 bg-background border rounded-lg hover:bg-muted/30 transition-colors"
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium">{servico.tipo}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-primary">
+                                R$ {servico.valor.toLocaleString("pt-BR")}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Total geral */}
+                        <div className="flex justify-between items-center p-4 bg-primary/10 border-2 border-primary/20 rounded-lg mt-4">
+                          <div className="text-lg font-bold text-foreground">Total Geral</div>
+                          <div className="text-xl font-bold text-primary">
+                            R${" "}
+                            {motorDetalhes.servicos
+                              .reduce((sum, servico) => sum + servico.valor, 0)
+                              .toLocaleString("pt-BR")}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground italic">
+                        Nenhum serviço cadastrado para este motor
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Botão de fechar */}
+                  <div className="flex justify-end pt-4 border-t">
+                    <Button onClick={fecharDetalhesMotor} variant="outline">
+                      Fechar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={modalExclusao.aberto} onOpenChange={cancelarExclusao}>
           <DialogContent className="sm:max-w-md">

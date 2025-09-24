@@ -69,6 +69,10 @@ export default function Home() {
   const [filtroNumeroMotor, setFiltroNumeroMotor] = useState("")
   const [filtroModeloVeiculo, setFiltroModeloVeiculo] = useState("")
 
+  const [modalNovoLoteAberto, setModalNovoLoteAberto] = useState(false)
+  const [modalNovoMotorAberto, setModalNovoMotorAberto] = useState(false)
+  const [modalEditarLoteAberto, setModalEditarLoteAberto] = useState(false)
+
   const tiposServicos = [
     "Revisão simples",
     "Troca de virabrequim",
@@ -284,6 +288,7 @@ export default function Home() {
 
           setLotes([...lotes, loteInserido])
           setNovoLote({ nome: "", data: "" })
+          setModalNovoLoteAberto(false)
           console.log("[v0] Lote adicionado ao estado local:", loteInserido)
           return
         }
@@ -303,6 +308,7 @@ export default function Home() {
 
     setLotes([...lotes, lote])
     setNovoLote({ nome: "", data: "" })
+    setModalNovoLoteAberto(false)
     console.log("[v0] Lote adicionado ao estado local (offline):", lote)
   }
 
@@ -336,12 +342,11 @@ export default function Home() {
       try {
         const { error: motorError } = await supabase.from("motores").insert([
           {
-            id: motor.id,
-            lote_id: motor.lote,
-            numero_motor: motor.numeroMotor,
+            codigo: motor.numeroMotor, // Usar campo 'codigo' conforme schema
             modelo: motor.modelo,
             operador: motor.operador,
             observacoes: motor.observacoes,
+            lote_id: motor.lote,
           },
         ])
 
@@ -364,6 +369,7 @@ export default function Home() {
       valoresServicos: {},
       lote: "",
     })
+    setModalNovoMotorAberto(false)
   }
 
   const iniciarEdicaoLote = (lote: Lote) => {
@@ -379,7 +385,7 @@ export default function Home() {
     const loteAtualizado = {
       ...loteEditando,
       nome: loteEditandoDados.nome,
-      data: loteEditandoDados.data, // Manter formato original da data
+      data: loteEditandoDados.data, // Manter formato original da data sem conversão
     }
 
     if (isOnlineMode && supabase && connectionStatus === "online") {
@@ -413,6 +419,7 @@ export default function Home() {
     setLotes(lotes.map((l) => (l.id === loteEditando.id ? loteAtualizado : l)))
     setLoteEditando(null)
     setLoteEditandoDados({ nome: "", data: "" })
+    setModalEditarLoteAberto(false)
   }
 
   const cancelarEdicaoLote = () => {
@@ -875,7 +882,7 @@ export default function Home() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 Lotes Fechados
-                <Dialog>
+                <Dialog open={modalNovoLoteAberto} onOpenChange={setModalNovoLoteAberto}>
                   <DialogTrigger asChild>
                     <Button size="sm">
                       <Plus className="h-4 w-4 mr-2" />
@@ -940,9 +947,16 @@ export default function Home() {
                         >
                           <FileText className="h-4 w-4" />
                         </Button>
-                        <Dialog>
+                        <Dialog open={modalEditarLoteAberto} onOpenChange={setModalEditarLoteAberto}>
                           <DialogTrigger asChild>
-                            <Button variant="ghost" size="sm" onClick={() => iniciarEdicaoLote(lote)}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                iniciarEdicaoLote(lote)
+                                setModalEditarLoteAberto(true)
+                              }}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                           </DialogTrigger>
@@ -975,7 +989,10 @@ export default function Home() {
                                 </Button>
                                 <Button
                                   variant="outline"
-                                  onClick={cancelarEdicaoLote}
+                                  onClick={() => {
+                                    cancelarEdicaoLote()
+                                    setModalEditarLoteAberto(false)
+                                  }}
                                   className="flex-1 bg-transparent"
                                 >
                                   Cancelar
@@ -1005,7 +1022,7 @@ export default function Home() {
                       {motoresFiltrados.length} de {motores.length}
                     </Badge>
                   )}
-                  <Dialog>
+                  <Dialog open={modalNovoMotorAberto} onOpenChange={setModalNovoMotorAberto}>
                     <DialogTrigger asChild>
                       <Button size="sm">
                         <Plus className="h-4 w-4 mr-2" />

@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Trash2, Plus, FileText, TrendingUp, Search, X, Edit, Database, Wifi, WifiOff } from "lucide-react"
-import { supabase, isSupabaseConfigured } from "@/lib/supabase"
+import { supabase, isSupabaseConfigured, testSupabaseConnection } from "@/lib/supabase"
 
 interface Motor {
   id: string
@@ -37,6 +37,7 @@ export default function Home() {
   const [isOnlineMode, setIsOnlineMode] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<"checking" | "online" | "offline">("checking")
+  const [showConnectionDetails, setShowConnectionDetails] = useState(false)
 
   const [lotes, setLotes] = useState<Lote[]>([])
   const [motores, setMotores] = useState<Motor[]>([])
@@ -81,8 +82,38 @@ export default function Home() {
     "Troca de mancal",
   ]
 
+  const exportData = () => {
+    return {
+      lotes,
+      motores,
+      exportDate: new Date().toISOString(),
+      version: "1.0",
+    }
+  }
+
+  const importData = (data: any) => {
+    if (data.lotes && data.motores) {
+      setLotes(data.lotes)
+      setMotores(data.motores)
+
+      // Salvar no localStorage
+      localStorage.setItem("inova-lotes", JSON.stringify(data.lotes))
+      localStorage.setItem("inova-motores", JSON.stringify(data.motores))
+
+      // Recarregar página para aplicar mudanças
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+    }
+  }
+
   const carregarDadosSupabase = async () => {
-    if (!supabase) return
+    if (!supabase) {
+      console.log("[v0] Cliente Supabase não disponível")
+      return
+    }
+
+    console.log("[v0] Tentando carregar dados do Supabase...")
 
     try {
       // Carregar lotes
@@ -91,7 +122,12 @@ export default function Home() {
         .select("*")
         .order("created_at", { ascending: false })
 
-      if (lotesError) throw lotesError
+      if (lotesError) {
+        console.log("[v0] Erro ao carregar lotes:", lotesError)
+        throw lotesError
+      }
+
+      console.log("[v0] Lotes carregados:", lotesData?.length || 0)
 
       // Carregar motores com serviços
       const { data: motoresData, error: motoresError } = await supabase
@@ -102,7 +138,12 @@ export default function Home() {
         `)
         .order("created_at", { ascending: false })
 
-      if (motoresError) throw motoresError
+      if (motoresError) {
+        console.log("[v0] Erro ao carregar motores:", motoresError)
+        throw motoresError
+      }
+
+      console.log("[v0] Motores carregados:", motoresData?.length || 0)
 
       // Transformar dados para o formato esperado
       const motoresFormatados =
@@ -124,8 +165,9 @@ export default function Home() {
       setLotes(lotesData || [])
       setMotores(motoresFormatados)
       setConnectionStatus("online")
+      console.log("[v0] Dados carregados com sucesso - status: online")
     } catch (error) {
-      console.error("Erro ao carregar dados do Supabase:", error)
+      console.error("[v0] Erro ao carregar dados do Supabase:", error)
       setConnectionStatus("offline")
       carregarDadosLocal()
     }
@@ -138,52 +180,13 @@ export default function Home() {
     if (lotesLocal) {
       setLotes(JSON.parse(lotesLocal))
     } else {
-      // Dados exemplo se não houver dados salvos
-      setLotes([
-        { id: "1", nome: "Lote Janeiro 2024", data: "2024-01-15" },
-        { id: "2", nome: "Lote Fevereiro 2024", data: "2024-02-10" },
-      ])
+      setLotes([])
     }
 
     if (motoresLocal) {
       setMotores(JSON.parse(motoresLocal))
     } else {
-      // Dados exemplo se não houver dados salvos
-      setMotores([
-        {
-          id: "1",
-          modelo: "Honda Civic",
-          numeroMotor: "001",
-          operador: "João Silva", // Adicionado operador nos dados exemplo
-          observacoes: "Motor em bom estado, apenas manutenção preventiva", // Adicionado observações nos dados exemplo
-          servicos: [
-            { tipo: "Revisão simples", valor: 800 },
-            { tipo: "Troca de anéis", valor: 400 },
-          ],
-          lote: "1",
-          data: "2024-01-15",
-        },
-        {
-          id: "2",
-          modelo: "Toyota Corolla",
-          numeroMotor: "002",
-          operador: "Maria Santos", // Adicionado operador nos dados exemplo
-          observacoes: "Virabrequim danificado, necessária substituição completa", // Adicionado observações nos dados exemplo
-          servicos: [{ tipo: "Troca de virabrequim", valor: 2500 }],
-          lote: "1",
-          data: "2024-01-16",
-        },
-        {
-          id: "3",
-          modelo: "Ford Focus",
-          numeroMotor: "003",
-          operador: "Carlos Oliveira", // Adicionado operador nos dados exemplo
-          observacoes: "Cabeçote com rachaduras, retifica necessária", // Adicionado observações nos dados exemplo
-          servicos: [{ tipo: "Retifica de cabeçote", valor: 1800 }],
-          lote: "2",
-          data: "2024-02-10",
-        },
-      ])
+      setMotores([])
     }
     setConnectionStatus("offline")
   }
@@ -196,10 +199,18 @@ export default function Home() {
   useEffect(() => {
     const inicializar = async () => {
       setIsLoading(true)
+      setConnectionStatus("checking")
 
       if (isSupabaseConfigured()) {
         setIsOnlineMode(true)
-        await carregarDadosSupabase()
+
+        const connectionTest = await testSupabaseConnection()
+        if (connectionTest) {
+          await carregarDadosSupabase()
+        } else {
+          setConnectionStatus("offline")
+          carregarDadosLocal()
+        }
       } else {
         setIsOnlineMode(false)
         carregarDadosLocal()
@@ -696,66 +707,29 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-foreground">Inova Ecopeças</h1>
           <p className="text-muted-foreground">Sistema de Controle de Gastos com Motores</p>
 
-          <div className="flex items-center justify-center gap-2 text-sm">
-            {connectionStatus === "online" ? (
-              <>
-                <Wifi className="h-4 w-4 text-green-500" />
-                <span className="text-green-600">Online - Dados sincronizados</span>
-              </>
-            ) : connectionStatus === "offline" ? (
-              <>
-                <WifiOff className="h-4 w-4 text-orange-500" />
-                <span className="text-orange-600">Offline - Dados locais</span>
-              </>
-            ) : (
-              <>
-                <Database className="h-4 w-4 animate-spin text-blue-500" />
-                <span className="text-blue-600">Verificando conexão...</span>
-              </>
-            )}
+          <div className="flex items-center justify-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              {connectionStatus === "online" ? (
+                <>
+                  <Wifi className="h-4 w-4 text-green-500" />
+                  <span className="text-green-600">Online - Dados sincronizados</span>
+                </>
+              ) : connectionStatus === "offline" ? (
+                <>
+                  <WifiOff className="h-4 w-4 text-orange-500" />
+                  <span className="text-orange-600">Offline - Dados locais</span>
+                </>
+              ) : (
+                <>
+                  <Database className="h-4 w-4 animate-spin text-blue-500" />
+                  <span className="text-blue-600">Verificando conexão...</span>
+                </>
+              )}
+            </div>
+
+            <div className="flex gap-2"></div>
           </div>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Métricas por Lote Fechado
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {getGastosPorLote().map((lote) => (
-                <div key={lote.id} className="p-4 border rounded-lg bg-card">
-                  <div className="space-y-2">
-                    <h3 className="font-semibold text-lg">{lote.nome}</h3>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Motores:</span>
-                        <span className="font-medium">{lote.totalMotores}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Gasto Total:</span>
-                        <span className="font-bold text-primary">R$ {lote.gastoTotal.toLocaleString("pt-BR")}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Média por Motor:</span>
-                        <span className="font-medium">
-                          R${" "}
-                          {lote.totalMotores > 0 ? (lote.gastoTotal / lote.totalMotores).toLocaleString("pt-BR") : "0"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Data:</span>
-                        <span className="text-muted-foreground">{new Date(lote.data).toLocaleDateString("pt-BR")}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader>
@@ -808,6 +782,53 @@ export default function Home() {
             )}
           </CardContent>
         </Card>
+
+        {(lotes.length > 0 || motores.length > 0) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Métricas por Lote Fechado
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {getGastosPorLote().map((lote) => (
+                  <div key={lote.id} className="p-4 border rounded-lg bg-card">
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-lg">{lote.nome}</h3>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Motores:</span>
+                          <span className="font-medium">{lote.totalMotores}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Gasto Total:</span>
+                          <span className="font-bold text-primary">R$ {lote.gastoTotal.toLocaleString("pt-BR")}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Média por Motor:</span>
+                          <span className="font-medium">
+                            R${" "}
+                            {lote.totalMotores > 0
+                              ? (lote.gastoTotal / lote.totalMotores).toLocaleString("pt-BR")
+                              : "0"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Data:</span>
+                          <span className="text-muted-foreground">
+                            {new Date(lote.data).toLocaleDateString("pt-BR")}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>

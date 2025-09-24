@@ -1,17 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { supabase, isSupabaseConfigured, testSupabaseConnection } from "@/lib/supabase"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTrigger, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
-import { Trash2, Plus, FileText, TrendingUp, Search, X, Edit, Database, Wifi, WifiOff } from "lucide-react"
-import { supabase, isSupabaseConfigured, testSupabaseConnection } from "@/lib/supabase"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
+import { Plus, Edit, Trash2, Search, X, Wifi, WifiOff, Database, TrendingUp, FileText } from "lucide-react"
 import SetupGuide from "@/components/setup-guide"
 
 interface Motor {
@@ -32,6 +32,55 @@ interface Lote {
   id: string
   nome: string
   data: string
+}
+
+const converterDataBrasileiraParaBanco = (dataBrasileira: string): string => {
+  if (!dataBrasileira || dataBrasileira.length !== 10) return ""
+
+  const [dia, mes, ano] = dataBrasileira.split("/")
+  if (!dia || !mes || !ano) return ""
+
+  // Validar se é uma data válida
+  const diaNum = Number.parseInt(dia, 10)
+  const mesNum = Number.parseInt(mes, 10)
+  const anoNum = Number.parseInt(ano, 10)
+
+  if (diaNum < 1 || diaNum > 31 || mesNum < 1 || mesNum > 12 || anoNum < 1900) {
+    return ""
+  }
+
+  return `${ano}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`
+}
+
+const converterDataBancoParaBrasileira = (dataBanco: string): string => {
+  if (!dataBanco) return ""
+
+  // Se já está no formato brasileiro, retornar como está
+  if (dataBanco.includes("/")) return dataBanco
+
+  // Se está no formato do banco YYYY-MM-DD
+  if (dataBanco.includes("-")) {
+    const [ano, mes, dia] = dataBanco.split("-")
+    if (ano && mes && dia) {
+      return `${dia}/${mes}/${ano}`
+    }
+  }
+
+  return dataBanco
+}
+
+const aplicarMascaraData = (valor: string): string => {
+  // Remove tudo que não é número
+  const apenasNumeros = valor.replace(/\D/g, "")
+
+  // Aplica a máscara DD/MM/YYYY
+  if (apenasNumeros.length <= 2) {
+    return apenasNumeros
+  } else if (apenasNumeros.length <= 4) {
+    return `${apenasNumeros.slice(0, 2)}/${apenasNumeros.slice(2)}`
+  } else {
+    return `${apenasNumeros.slice(0, 2)}/${apenasNumeros.slice(2, 4)}/${apenasNumeros.slice(4, 8)}`
+  }
 }
 
 export default function Home() {
@@ -163,7 +212,7 @@ export default function Home() {
         todosLotes?.map((lote) => ({
           id: lote.id,
           nome: lote.nome,
-          data: lote.data_fechamento, // Usar exatamente o que está salvo no banco
+          data: converterDataBancoParaBrasileira(lote.data_fechamento),
         })) || []
 
       // Carregar motores
@@ -268,11 +317,16 @@ export default function Home() {
 
     if (isOnlineMode && supabase && connectionStatus === "online") {
       try {
-        const dataFormatada = novoLote.data // Manter exatamente como digitado: "YYYY-MM-DD"
+        const dataFormatadaBanco = converterDataBrasileiraParaBanco(novoLote.data)
+
+        if (!dataFormatadaBanco) {
+          console.error("[v0] Data inválida:", novoLote.data)
+          return
+        }
 
         console.log("[v0] Inserindo lote no Supabase com dados:", {
           nome: novoLote.nome,
-          data_fechamento: dataFormatada,
+          data_fechamento: dataFormatadaBanco,
         })
 
         const { data: insertedData, error } = await supabase
@@ -280,7 +334,7 @@ export default function Home() {
           .insert([
             {
               nome: novoLote.nome,
-              data_fechamento: dataFormatada, // Enviar string diretamente sem conversão
+              data_fechamento: dataFormatadaBanco, // Enviar no formato YYYY-MM-DD
             },
           ])
           .select()
@@ -297,7 +351,7 @@ export default function Home() {
           const loteInserido: Lote = {
             id: insertedData[0].id,
             nome: insertedData[0].nome,
-            data: insertedData[0].data_fechamento, // Usar exatamente o que foi salvo
+            data: novoLote.data, // Manter formato brasileiro DD/MM/YYYY
           }
 
           setLotes([...lotes, loteInserido])
@@ -317,7 +371,7 @@ export default function Home() {
     const lote: Lote = {
       id: Date.now().toString(),
       nome: novoLote.nome,
-      data: novoLote.data, // Manter exatamente como digitado
+      data: novoLote.data, // Manter formato brasileiro
     }
 
     setLotes([...lotes, lote])
@@ -399,21 +453,28 @@ export default function Home() {
     const loteAtualizado = {
       ...loteEditando,
       nome: loteEditandoDados.nome,
-      data: loteEditandoDados.data, // Manter exatamente como digitado no input
+      data: loteEditandoDados.data, // Manter formato brasileiro
     }
 
     if (isOnlineMode && supabase && connectionStatus === "online") {
       try {
+        const dataFormatadaBanco = converterDataBrasileiraParaBanco(loteEditandoDados.data)
+
+        if (!dataFormatadaBanco) {
+          console.error("[v0] Data inválida:", loteEditandoDados.data)
+          return
+        }
+
         console.log("[v0] Atualizando lote no Supabase:", {
           nome: loteAtualizado.nome,
-          data_fechamento: loteAtualizado.data,
+          data_fechamento: dataFormatadaBanco,
         })
 
         const { error } = await supabase
           .from("lotes")
           .update({
             nome: loteAtualizado.nome,
-            data_fechamento: loteAtualizado.data, // Enviar string diretamente
+            data_fechamento: dataFormatadaBanco, // Enviar no formato YYYY-MM-DD
           })
           .eq("id", loteEditando.id)
 
@@ -691,7 +752,7 @@ export default function Home() {
             <div class="info-grid">
               <div class="info-item">
                 <span class="info-label">Data do Lote:</span>
-                <span>${new Date(lote.data).toLocaleDateString("pt-BR")}</span>
+                <span>${lote.data}</span>
               </div>
               <div class="info-item">
                 <span class="info-label">Total de Motores:</span>
@@ -915,9 +976,7 @@ export default function Home() {
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Data:</span>
-                          <span className="text-muted-foreground">
-                            {new Date(lote.data).toLocaleDateString("pt-BR")}
-                          </span>
+                          <span className="text-muted-foreground">{lote.data}</span>
                         </div>
                       </div>
                     </div>
@@ -955,12 +1014,14 @@ export default function Home() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="data-lote">Data</Label>
+                        <Label htmlFor="data-lote">Data (DD/MM/AAAA)</Label>
                         <Input
                           id="data-lote"
-                          type="date"
+                          type="text"
                           value={novoLote.data}
-                          onChange={(e) => setNovoLote({ ...novoLote, data: e.target.value })}
+                          onChange={(e) => setNovoLote({ ...novoLote, data: aplicarMascaraData(e.target.value) })}
+                          placeholder="24/09/2025"
+                          maxLength={10}
                         />
                       </div>
                       <Button onClick={adicionarLote} className="w-full">
@@ -985,8 +1046,7 @@ export default function Home() {
                       <div>
                         <div className="font-medium">{lote.nome}</div>
                         <div className="text-sm text-muted-foreground">
-                          {motoresDoLote.length} motores • R$ {gastoLote.toLocaleString("pt-BR")} •{" "}
-                          {new Date(lote.data).toLocaleDateString("pt-BR")}
+                          {motoresDoLote.length} motores • R$ {gastoLote.toLocaleString("pt-BR")} • {lote.data}
                         </div>
                       </div>
                       <div className="flex gap-1">
@@ -1026,12 +1086,19 @@ export default function Home() {
                                 />
                               </div>
                               <div>
-                                <Label htmlFor="edit-data-lote">Data</Label>
+                                <Label htmlFor="edit-data-lote">Data (DD/MM/AAAA)</Label>
                                 <Input
                                   id="edit-data-lote"
-                                  type="date"
+                                  type="text"
                                   value={loteEditandoDados.data}
-                                  onChange={(e) => setLoteEditandoDados({ ...loteEditandoDados, data: e.target.value })}
+                                  onChange={(e) =>
+                                    setLoteEditandoDados({
+                                      ...loteEditandoDados,
+                                      data: aplicarMascaraData(e.target.value),
+                                    })
+                                  }
+                                  placeholder="24/09/2025"
+                                  maxLength={10}
                                 />
                               </div>
                               <div className="flex gap-2">

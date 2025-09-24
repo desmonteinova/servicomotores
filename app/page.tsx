@@ -73,6 +73,20 @@ export default function Home() {
   const [modalNovoMotorAberto, setModalNovoMotorAberto] = useState(false)
   const [modalEditarLoteAberto, setModalEditarLoteAberto] = useState(false)
 
+  const [modalExclusao, setModalExclusao] = useState<{
+    aberto: boolean
+    tipo: "lote" | "motor"
+    id: string
+    nome: string
+  }>({
+    aberto: false,
+    tipo: "lote",
+    id: "",
+    nome: "",
+  })
+  const [senhaExclusao, setSenhaExclusao] = useState("")
+  const [erroSenhaExclusao, setErroSenhaExclusao] = useState("")
+
   const tiposServicos = [
     "Revisão simples",
     "Troca de virabrequim",
@@ -501,6 +515,11 @@ export default function Home() {
 
     setLotes(lotes.filter((lote) => lote.id !== id))
     setMotores(motores.filter((motor) => motor.lote !== id))
+
+    // Fechar modal e limpar estados
+    setModalExclusao({ aberto: false, tipo: "lote", id: "", nome: "" })
+    setSenhaExclusao("")
+    setErroSenhaExclusao("")
   }
 
   const removerMotor = async (id: string) => {
@@ -516,6 +535,38 @@ export default function Home() {
     }
 
     setMotores(motores.filter((motor) => motor.id !== id))
+
+    // Fechar modal e limpar estados
+    setModalExclusao({ aberto: false, tipo: "lote", id: "", nome: "" })
+    setSenhaExclusao("")
+    setErroSenhaExclusao("")
+  }
+
+  const abrirModalExclusao = (tipo: "lote" | "motor", id: string, nome: string) => {
+    setModalExclusao({ aberto: true, tipo, id, nome })
+    setSenhaExclusao("")
+    setErroSenhaExclusao("")
+  }
+
+  const confirmarExclusao = () => {
+    const senhaCorreta = "admin123" // Senha fixa para exclusão
+
+    if (senhaExclusao !== senhaCorreta) {
+      setErroSenhaExclusao("Senha incorreta!")
+      return
+    }
+
+    if (modalExclusao.tipo === "lote") {
+      removerLote(modalExclusao.id)
+    } else {
+      removerMotor(modalExclusao.id)
+    }
+  }
+
+  const cancelarExclusao = () => {
+    setModalExclusao({ aberto: false, tipo: "lote", id: "", nome: "" })
+    setSenhaExclusao("")
+    setErroSenhaExclusao("")
   }
 
   const getLoteNome = (loteId: string) => {
@@ -1001,7 +1052,11 @@ export default function Home() {
                             </div>
                           </DialogContent>
                         </Dialog>
-                        <Button variant="ghost" size="sm" onClick={() => removerLote(lote.id)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => abrirModalExclusao("lote", lote.id, lote.nome)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -1282,7 +1337,11 @@ export default function Home() {
                                 </DialogContent>
                               </Dialog>
 
-                              <Button variant="ghost" size="sm" onClick={() => removerMotor(motor.id)}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => abrirModalExclusao("motor", motor.id, motor.numeroMotor)}
+                              >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
@@ -1325,6 +1384,51 @@ export default function Home() {
             </div>
           </CardContent>
         </Card>
+
+        <Dialog open={modalExclusao.aberto} onOpenChange={cancelarExclusao}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-destructive">Confirmar Exclusão</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Tem certeza que deseja excluir {modalExclusao.tipo === "lote" ? "o lote" : "o motor"}{" "}
+                <span className="font-semibold">{modalExclusao.nome}</span>?
+              </p>
+
+              {modalExclusao.tipo === "lote" && (
+                <p className="text-xs text-destructive">⚠️ Todos os motores deste lote também serão excluídos!</p>
+              )}
+
+              <div className="space-y-2">
+                <label htmlFor="senha-exclusao" className="text-sm font-medium">
+                  Digite a senha para confirmar:
+                </label>
+                <Input
+                  id="senha-exclusao"
+                  type="password"
+                  value={senhaExclusao}
+                  onChange={(e) => {
+                    setSenhaExclusao(e.target.value)
+                    setErroSenhaExclusao("")
+                  }}
+                  placeholder="Senha de exclusão"
+                  className={erroSenhaExclusao ? "border-destructive" : ""}
+                />
+                {erroSenhaExclusao && <p className="text-xs text-destructive">{erroSenhaExclusao}</p>}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={cancelarExclusao}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" onClick={confirmarExclusao} disabled={!senhaExclusao.trim()}>
+                Excluir
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

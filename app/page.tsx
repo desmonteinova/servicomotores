@@ -579,54 +579,63 @@ export default function Home() {
   const salvarEdicaoMotor = async () => {
     if (!motorEditando) return
 
-    const servicosAtualizados = motorEditandoServicos.map((tipo) => ({
-      tipo,
-      valor: Number.parseFloat(motorEditandoValores[tipo] || "0"),
-    }))
+    console.log("[v0] Iniciando salvamento da edição do motor...")
 
-    const motorAtualizado = {
-      ...motorEditando,
-      operador: motorEditandoOperador, // Salvar operador editado
-      observacoes: motorEditandoObservacoes, // Salvar observações editadas
-      servicos: servicosAtualizados,
-    }
+    try {
+      const servicosAtualizados = motorEditandoServicos.map((tipo) => ({
+        tipo,
+        valor: Number.parseFloat(motorEditandoValores[tipo] || "0"),
+      }))
 
-    if (isOnlineMode && supabase && connectionStatus === "online") {
-      try {
-        const { error: motorError } = await supabase
-          .from("motores")
-          .update({
-            operador: motorAtualizado.operador,
-            observacoes: motorAtualizado.observacoes,
-          })
-          .eq("id", motorEditando.id)
-
-        if (motorError) throw motorError
-      } catch (error) {
-        console.error("Erro ao atualizar motor no Supabase:", error)
-        setConnectionStatus("offline")
+      const motorAtualizado = {
+        ...motorEditando,
+        operador: motorEditandoOperador,
+        observacoes: motorEditandoObservacoes,
+        servicos: servicosAtualizados,
       }
-    }
 
-    const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
-    setMotores(motoresAtualizados)
+      console.log("[v0] Motor atualizado:", motorAtualizado)
 
-    // Salvar no localStorage imediatamente
-    salvarDadosLocal(lotes, motoresAtualizados)
-    console.log("[v0] Motor editado salvo no localStorage:", motorAtualizado)
+      if (isOnlineMode && supabase && connectionStatus === "online") {
+        try {
+          const { error: motorError } = await supabase
+            .from("motores")
+            .update({
+              operador: motorAtualizado.operador,
+              observacoes: motorAtualizado.observacoes,
+            })
+            .eq("id", motorEditando.id)
 
-    setMotorEditando(null)
-    setMotorEditandoServicos([])
-    setMotorEditandoValores({})
-    setMotorEditandoOperador("") // Reset do estado de edição do operador
-    setMotorEditandoObservacoes("") // Reset do estado de edição das observações
+          if (motorError) throw motorError
+          console.log("[v0] Motor atualizado no Supabase com sucesso")
+        } catch (error) {
+          console.error("[v0] Erro ao atualizar motor no Supabase:", error)
+          setConnectionStatus("offline")
+        }
+      }
 
-    // Fechar o modal programaticamente
-    const dialogCloseButton = document.querySelector(
-      '[data-state="open"] button[aria-label="Close"]',
-    ) as HTMLButtonElement
-    if (dialogCloseButton) {
-      dialogCloseButton.click()
+      const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
+      setMotores(motoresAtualizados)
+
+      // Salvar no localStorage imediatamente
+      salvarDadosLocal(lotes, motoresAtualizados)
+      console.log("[v0] Motor editado salvo no localStorage:", motorAtualizado)
+
+      setMotorEditando(null)
+      setMotorEditandoServicos([])
+      setMotorEditandoValores({})
+      setMotorEditandoOperador("")
+      setMotorEditandoObservacoes("")
+
+      console.log("[v0] Estados de edição limpos - modal deve fechar automaticamente")
+    } catch (error) {
+      console.error("[v0] Erro durante salvamento:", error)
+      // Mesmo com erro, limpar os estados para fechar o modal
+      setMotorEditando(null)
+      setMotorEditandoServicos([])
+      setMotorEditandoValores({})
+      setMotorEditandoOperador("")
+      setMotorEditandoObservacoes("")
     }
   }
 

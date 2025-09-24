@@ -243,9 +243,11 @@ export default function Home() {
 
     if (isOnlineMode && supabase && connectionStatus === "online") {
       try {
+        const dataFormatada = novoLote.data // Manter formato YYYY-MM-DD do input
+
         console.log("[v0] Inserindo lote no Supabase com dados:", {
           nome: novoLote.nome,
-          data_fechamento: novoLote.data,
+          data_fechamento: dataFormatada,
         })
 
         const { data: insertedData, error } = await supabase
@@ -253,7 +255,7 @@ export default function Home() {
           .insert([
             {
               nome: novoLote.nome,
-              data_fechamento: novoLote.data, // Campo correto conforme o schema
+              data_fechamento: dataFormatada, // Campo correto conforme o schema
             },
           ])
           .select()
@@ -280,8 +282,8 @@ export default function Home() {
         }
       } catch (error) {
         console.error("[v0] Erro ao salvar lote no Supabase:", error)
-        // Fallback para localStorage
         setConnectionStatus("offline")
+        // Continuar com salvamento local em caso de erro
       }
     }
 
@@ -365,6 +367,8 @@ export default function Home() {
   const salvarEdicaoLote = async () => {
     if (!loteEditando || !loteEditandoDados.nome || !loteEditandoDados.data) return
 
+    console.log("[v0] Tentando editar lote:", loteEditando.id, loteEditandoDados)
+
     const loteAtualizado = {
       ...loteEditando,
       nome: loteEditandoDados.nome,
@@ -373,18 +377,29 @@ export default function Home() {
 
     if (isOnlineMode && supabase && connectionStatus === "online") {
       try {
+        console.log("[v0] Atualizando lote no Supabase:", {
+          nome: loteAtualizado.nome,
+          data_fechamento: loteAtualizado.data,
+        })
+
         const { error } = await supabase
           .from("lotes")
           .update({
             nome: loteAtualizado.nome,
-            data: loteAtualizado.data,
+            data_fechamento: loteAtualizado.data, // Campo correto
           })
           .eq("id", loteEditando.id)
 
-        if (error) throw error
+        if (error) {
+          console.error("[v0] Erro detalhado ao editar lote:", error)
+          throw error
+        }
+
+        console.log("[v0] Lote editado com sucesso no Supabase")
       } catch (error) {
-        console.error("Erro ao atualizar lote no Supabase:", error)
+        console.error("[v0] Erro ao atualizar lote no Supabase:", error)
         setConnectionStatus("offline")
+        // Continuar com atualização local em caso de erro
       }
     }
 

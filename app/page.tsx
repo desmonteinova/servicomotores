@@ -235,23 +235,58 @@ export default function Home() {
       if (motoresError) throw motoresError
 
       console.log("[v0] Motores carregados:", motoresData?.length || 0)
+      console.log("[v0] Dados brutos dos motores:", motoresData) // Debug dos dados brutos
 
       const motoresFormatados =
-        motoresData?.map((motor) => ({
-          id: motor.id,
-          modelo: motor.modelo,
-          numeroMotor: motor.codigo, // Usar campo codigo em vez de numero_motor
-          operador: motor.operador || "",
-          observacoes: motor.observacoes || "",
-          servicos: [], // Array vazio por enquanto
-          lote: motor.lote_id,
-          data: converterDataBancoParaBrasileira(motor.data_entrada), // Converter data de entrada para formato brasileiro
-        })) || []
+        motoresData?.map((motor) => {
+          let dataEntrada = motor.data_entrada
+          if (!dataEntrada) {
+            // Se não tem data de entrada, usar data atual
+            dataEntrada = new Date().toISOString().split("T")[0] // YYYY-MM-DD
+            console.log(`[v0] Motor ${motor.codigo} sem data - usando data atual: ${dataEntrada}`)
+          }
+
+          const dataEntradaConvertida = converterDataBancoParaBrasileira(dataEntrada)
+          console.log(`[v0] Motor ${motor.codigo}: data_entrada=${dataEntrada} -> convertida=${dataEntradaConvertida}`) // Debug conversão de data
+
+          return {
+            id: motor.id,
+            modelo: motor.modelo,
+            numeroMotor: motor.codigo, // Usar campo codigo em vez de numero_motor
+            operador: motor.operador || "",
+            observacoes: motor.observacoes || "",
+            servicos: [], // Array vazio por enquanto - serviços ficam no localStorage
+            lote: motor.lote_id,
+            data: dataEntradaConvertida, // Converter data de entrada para formato brasileiro
+          }
+        }) || []
+
+      console.log("[v0] Motores formatados:", motoresFormatados) // Debug dos motores formatados
+
+      const motoresLocal = localStorage.getItem("inova-motores")
+      let motoresComServicos = motoresFormatados
+
+      if (motoresLocal) {
+        const motoresLocalParsed = JSON.parse(motoresLocal)
+        motoresComServicos = motoresFormatados.map((motorSupabase) => {
+          const motorLocal = motoresLocalParsed.find((m: Motor) => m.numeroMotor === motorSupabase.numeroMotor)
+          if (motorLocal && motorLocal.servicos) {
+            return {
+              ...motorSupabase,
+              servicos: motorLocal.servicos, // Preservar serviços do localStorage
+            }
+          }
+          return motorSupabase
+        })
+        console.log("[v0] Serviços mesclados do localStorage")
+      }
 
       setLotes(lotesFormatados)
-      setMotores(motoresFormatados)
+      setMotores(motoresComServicos)
       setConnectionStatus("online")
       console.log("[v0] Dados carregados com sucesso - status: online")
+
+      salvarDadosLocal(lotesFormatados, motoresComServicos)
     } catch (error) {
       console.error("[v0] Erro ao carregar dados do Supabase:", error)
       setConnectionStatus("offline")
@@ -407,6 +442,7 @@ export default function Home() {
     }))
 
     const dataEntrada = new Date().toLocaleDateString("pt-BR")
+    console.log("[v0] Data de entrada gerada:", dataEntrada) // Debug da data gerada
 
     const motor: Motor = {
       id: Date.now().toString(),
@@ -419,8 +455,13 @@ export default function Home() {
       data: dataEntrada, // Data de entrada automática no formato DD/MM/YYYY
     }
 
+    console.log("[v0] Motor criado com data:", motor.data) // Debug do motor criado
+
     if (isOnlineMode && supabase && connectionStatus === "online") {
       try {
+        const dataParaBanco = converterDataBrasileiraParaBanco(motor.data)
+        console.log("[v0] Salvando no banco - data original:", motor.data, "data para banco:", dataParaBanco) // Debug conversão para banco
+
         const { error: motorError } = await supabase.from("motores").insert([
           {
             codigo: motor.numeroMotor, // Usar campo 'codigo' conforme schema
@@ -428,11 +469,12 @@ export default function Home() {
             operador: motor.operador,
             observacoes: motor.observacoes,
             lote_id: motor.lote,
-            data_entrada: converterDataBrasileiraParaBanco(motor.data), // Salvar data de entrada no formato YYYY-MM-DD
+            data_entrada: dataParaBanco, // Salvar data de entrada no formato YYYY-MM-DD
           },
         ])
 
         if (motorError) throw motorError
+        console.log("[v0] Motor salvo no Supabase com sucesso") // Debug sucesso salvamento
 
         // Os serviços serão mantidos apenas no localStorage por enquanto
       } catch (error) {
@@ -441,7 +483,13 @@ export default function Home() {
       }
     }
 
-    setMotores([...motores, motor])
+    const novosMotores = [...motores, motor]
+    setMotores(novosMotores)
+
+    // Salvar no localStorage imediatamente
+    salvarDadosLocal(lotes, novosMotores)
+    console.log("[v0] Motor salvo no localStorage:", motor)
+
     setNovoMotor({
       modelo: "",
       numeroMotor: "",
@@ -560,12 +608,26 @@ export default function Home() {
       }
     }
 
-    setMotores(motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m)))
+    const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
+    setMotores(motoresAtualizados)
+
+    // Salvar no localStorage imediatamente
+    salvarDadosLocal(lotes, motoresAtualizados)
+    console.log("[v0] Motor editado salvo no localStorage:", motorAtualizado)
+
     setMotorEditando(null)
     setMotorEditandoServicos([])
     setMotorEditandoValores({})
     setMotorEditandoOperador("") // Reset do estado de edição do operador
     setMotorEditandoObservacoes("") // Reset do estado de edição das observações
+
+    // Fechar o modal programaticamente
+    const dialogCloseButton = document.querySelector(
+      '[data-state="open"] button[aria-label="Close"]',
+    ) as HTMLButtonElement
+    if (dialogCloseButton) {
+      dialogCloseButton.click()
+    }
   }
 
   const cancelarEdicaoMotor = () => {

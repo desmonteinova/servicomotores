@@ -143,18 +143,21 @@ export default function Home() {
 
   const tiposServicos = [
     "Revisão simples",
+    "Serviços mão de obra",
+    "Desmontagem do motor",
+    "Troca de junta comando de valvulas",
+    "Troca comando de valvulas",
+    "Retífica comando de valvulas",
+    "Troca de junta do cabeçote",
+    "Retífica de cabeçote",
     "Troca de virabrequim",
-    "Retifica de virabrequim",
-    "Troca junta de cabeçote",
-    "Retifica de cabeçote",
+    "Retífica de virabrequim",
     "Troca de anéis",
     "Troca de pistão",
-    "Serviços mão de obra",
-    "Desmontagem do motor", // Adicionado serviço de desmontagem do motor
     "Troca de bronzina de mancal",
     "Troca de bronzina de biela",
-    "Troca de biela",
     "Troca de mancal",
+    "Troca de biela",
   ]
 
   const exportData = () => {

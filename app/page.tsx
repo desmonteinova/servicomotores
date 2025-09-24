@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Trash2, Plus, FileText, TrendingUp, Search, X, Edit, Database, Wifi, WifiOff } from "lucide-react"
 import { supabase, isSupabaseConfigured, testSupabaseConnection } from "@/lib/supabase"
-import { SetupGuide } from "@/components/setup-guide"
+import SetupGuide from "@/components/setup-guide"
 
 interface Motor {
   id: string

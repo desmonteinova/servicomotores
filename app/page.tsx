@@ -25,7 +25,7 @@ interface Motor {
     valor: number
   }>
   lote: string
-  data: string
+  data: string // Data de entrada do motor
 }
 
 interface Lote {
@@ -245,7 +245,7 @@ export default function Home() {
           observacoes: motor.observacoes || "",
           servicos: [], // Array vazio por enquanto
           lote: motor.lote_id,
-          data: motor.created_at.split("T")[0],
+          data: converterDataBancoParaBrasileira(motor.data_entrada), // Converter data de entrada para formato brasileiro
         })) || []
 
       setLotes(lotesFormatados)
@@ -406,6 +406,8 @@ export default function Home() {
       valor: Number.parseFloat(novoMotor.valoresServicos[tipo] || "0"),
     }))
 
+    const dataEntrada = new Date().toLocaleDateString("pt-BR")
+
     const motor: Motor = {
       id: Date.now().toString(),
       modelo: novoMotor.modelo,
@@ -414,7 +416,7 @@ export default function Home() {
       observacoes: novoMotor.observacoes, // Incluído observações na criação do motor
       servicos,
       lote: novoMotor.lote,
-      data: new Date().toISOString().split("T")[0],
+      data: dataEntrada, // Data de entrada automática no formato DD/MM/YYYY
     }
 
     if (isOnlineMode && supabase && connectionStatus === "online") {
@@ -426,6 +428,7 @@ export default function Home() {
             operador: motor.operador,
             observacoes: motor.observacoes,
             lote_id: motor.lote,
+            data_entrada: converterDataBrasileiraParaBanco(motor.data), // Salvar data de entrada no formato YYYY-MM-DD
           },
         ])
 
@@ -1010,27 +1013,49 @@ export default function Home() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="max-h-96 overflow-y-auto space-y-2 pr-2">
+              <div className="max-h-96 overflow-y-auto space-y-3 pr-2">
                 {motoresFiltrados.map((motor) => {
                   const valorTotal = motor.servicos.reduce((sum, servico) => sum + servico.valor, 0)
 
                   return (
-                    <div key={motor.id} className="p-3 border rounded-lg bg-muted/30">
-                      <div className="flex items-start justify-between">
+                    <div key={motor.id} className="p-4 border rounded-lg bg-muted/30">
+                      <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
-                          <div className="font-medium">{motor.modelo}</div>
+                          <div className="font-medium text-lg">{motor.modelo}</div>
                           <div className="text-sm text-muted-foreground mb-1">Motor {motor.numeroMotor}</div>
                           <div className="text-sm text-blue-600 font-medium mb-2">Operador: {motor.operador}</div>
+                          <div className="text-sm text-green-600 font-medium mb-2">Data de Entrada: {motor.data}</div>
 
                           {motor.observacoes && (
-                            <div className="text-sm text-muted-foreground italic mb-2 p-2 bg-background rounded">
-                              {motor.observacoes}
+                            <div className="text-sm text-muted-foreground italic mb-3 p-2 bg-background rounded">
+                              <strong>Observações:</strong> {motor.observacoes}
                             </div>
                           )}
 
-                          <div className="flex items-center gap-2 mt-2">
+                          <div className="mb-3">
+                            <div className="text-sm font-semibold text-foreground mb-2">Serviços Realizados:</div>
+                            <div className="space-y-1 bg-background rounded-lg p-3 border">
+                              {motor.servicos.length > 0 ? (
+                                motor.servicos.map((servico, index) => (
+                                  <div
+                                    key={index}
+                                    className="flex justify-between items-center py-1 border-b border-muted last:border-b-0"
+                                  >
+                                    <span className="text-sm text-muted-foreground">{servico.tipo}</span>
+                                    <span className="text-sm font-medium text-primary">
+                                      R$ {servico.valor.toLocaleString("pt-BR")}
+                                    </span>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-sm text-muted-foreground italic">Nenhum serviço cadastrado</div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 mt-3">
                             <Badge variant="secondary">{getLoteNome(motor.lote)}</Badge>
-                            <span className="text-sm font-bold text-primary">
+                            <span className="text-base font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">
                               Total: R$ {valorTotal.toLocaleString("pt-BR")}
                             </span>
                           </div>

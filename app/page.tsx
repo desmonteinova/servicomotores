@@ -129,13 +129,10 @@ export default function Home() {
 
       console.log("[v0] Lotes carregados:", lotesData?.length || 0)
 
-      // Carregar motores com serviços
+      // Carregar apenas motores sem serviços por enquanto
       const { data: motoresData, error: motoresError } = await supabase
         .from("motores")
-        .select(`
-          *,
-          servicos (*)
-        `)
+        .select("*")
         .order("created_at", { ascending: false })
 
       if (motoresError) {
@@ -145,7 +142,6 @@ export default function Home() {
 
       console.log("[v0] Motores carregados:", motoresData?.length || 0)
 
-      // Transformar dados para o formato esperado
       const motoresFormatados =
         motoresData?.map((motor) => ({
           id: motor.id,
@@ -153,11 +149,7 @@ export default function Home() {
           numeroMotor: motor.numero_motor,
           operador: motor.operador || "",
           observacoes: motor.observacoes || "",
-          servicos:
-            motor.servicos?.map((s: any) => ({
-              tipo: s.tipo,
-              valor: Number.parseFloat(s.valor),
-            })) || [],
+          servicos: [], // Array vazio por enquanto
           lote: motor.lote_id,
           data: motor.created_at.split("T")[0],
         })) || []
@@ -294,7 +286,6 @@ export default function Home() {
 
     if (isOnlineMode && supabase && connectionStatus === "online") {
       try {
-        // Inserir motor
         const { error: motorError } = await supabase.from("motores").insert([
           {
             id: motor.id,
@@ -308,16 +299,7 @@ export default function Home() {
 
         if (motorError) throw motorError
 
-        // Inserir serviços
-        const servicosParaInserir = servicos.map((servico) => ({
-          motor_id: motor.id,
-          tipo: servico.tipo,
-          valor: servico.valor,
-        }))
-
-        const { error: servicosError } = await supabase.from("servicos").insert(servicosParaInserir)
-
-        if (servicosError) throw servicosError
+        // Os serviços serão mantidos apenas no localStorage por enquanto
       } catch (error) {
         console.error("Erro ao salvar motor no Supabase:", error)
         setConnectionStatus("offline")
@@ -406,7 +388,6 @@ export default function Home() {
 
     if (isOnlineMode && supabase && connectionStatus === "online") {
       try {
-        // Atualizar motor
         const { error: motorError } = await supabase
           .from("motores")
           .update({
@@ -416,22 +397,6 @@ export default function Home() {
           .eq("id", motorEditando.id)
 
         if (motorError) throw motorError
-
-        // Deletar serviços antigos
-        const { error: deleteError } = await supabase.from("servicos").delete().eq("motor_id", motorEditando.id)
-
-        if (deleteError) throw deleteError
-
-        // Inserir novos serviços
-        const servicosParaInserir = servicosAtualizados.map((servico) => ({
-          motor_id: motorEditando.id,
-          tipo: servico.tipo,
-          valor: servico.valor,
-        }))
-
-        const { error: servicosError } = await supabase.from("servicos").insert(servicosParaInserir)
-
-        if (servicosError) throw servicosError
       } catch (error) {
         console.error("Erro ao atualizar motor no Supabase:", error)
         setConnectionStatus("offline")

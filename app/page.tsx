@@ -239,6 +239,8 @@ export default function Home() {
   const adicionarLote = async () => {
     if (!novoLote.nome || !novoLote.data) return
 
+    console.log("[v0] Tentando adicionar lote:", novoLote)
+
     const lote: Lote = {
       id: Date.now().toString(),
       nome: novoLote.nome,
@@ -247,17 +249,30 @@ export default function Home() {
 
     if (isOnlineMode && supabase && connectionStatus === "online") {
       try {
-        const { error } = await supabase.from("lotes").insert([
-          {
-            id: lote.id,
-            nome: lote.nome,
-            data: lote.data,
-          },
-        ])
+        console.log("[v0] Inserindo lote no Supabase:", lote)
 
-        if (error) throw error
+        const { data: insertedData, error } = await supabase
+          .from("lotes")
+          .insert([
+            {
+              nome: lote.nome,
+              data_fechamento: lote.data, // Campo correto conforme o schema
+            },
+          ])
+          .select()
+
+        if (error) {
+          console.error("[v0] Erro detalhado do Supabase:", error)
+          throw error
+        }
+
+        console.log("[v0] Lote inserido com sucesso no Supabase:", insertedData)
+
+        if (insertedData && insertedData[0]) {
+          lote.id = insertedData[0].id
+        }
       } catch (error) {
-        console.error("Erro ao salvar lote no Supabase:", error)
+        console.error("[v0] Erro ao salvar lote no Supabase:", error)
         // Fallback para localStorage
         setConnectionStatus("offline")
       }
@@ -265,6 +280,7 @@ export default function Home() {
 
     setLotes([...lotes, lote])
     setNovoLote({ nome: "", data: "" })
+    console.log("[v0] Lote adicionado ao estado local:", lote)
   }
 
   const adicionarMotor = async () => {

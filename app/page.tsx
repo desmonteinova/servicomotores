@@ -163,7 +163,7 @@ export default function Home() {
         todosLotes?.map((lote) => ({
           id: lote.id,
           nome: lote.nome,
-          data: lote.data_fechamento, // Campo correto do banco
+          data: lote.data_fechamento, // Usar exatamente o que está salvo no banco
         })) || []
 
       // Carregar motores
@@ -268,7 +268,7 @@ export default function Home() {
 
     if (isOnlineMode && supabase && connectionStatus === "online") {
       try {
-        const dataFormatada = novoLote.data // Manter formato YYYY-MM-DD do input
+        const dataFormatada = novoLote.data // Manter exatamente como digitado: "YYYY-MM-DD"
 
         console.log("[v0] Inserindo lote no Supabase com dados:", {
           nome: novoLote.nome,
@@ -280,7 +280,7 @@ export default function Home() {
           .insert([
             {
               nome: novoLote.nome,
-              data_fechamento: dataFormatada, // Campo correto conforme o schema
+              data_fechamento: dataFormatada, // Enviar string diretamente sem conversão
             },
           ])
           .select()
@@ -297,7 +297,7 @@ export default function Home() {
           const loteInserido: Lote = {
             id: insertedData[0].id,
             nome: insertedData[0].nome,
-            data: insertedData[0].data_fechamento, // Usar o campo correto do retorno
+            data: insertedData[0].data_fechamento, // Usar exatamente o que foi salvo
           }
 
           setLotes([...lotes, loteInserido])
@@ -317,7 +317,7 @@ export default function Home() {
     const lote: Lote = {
       id: Date.now().toString(),
       nome: novoLote.nome,
-      data: novoLote.data,
+      data: novoLote.data, // Manter exatamente como digitado
     }
 
     setLotes([...lotes, lote])
@@ -399,7 +399,7 @@ export default function Home() {
     const loteAtualizado = {
       ...loteEditando,
       nome: loteEditandoDados.nome,
-      data: loteEditandoDados.data, // Manter formato original da data sem conversão
+      data: loteEditandoDados.data, // Manter exatamente como digitado no input
     }
 
     if (isOnlineMode && supabase && connectionStatus === "online") {
@@ -413,7 +413,7 @@ export default function Home() {
           .from("lotes")
           .update({
             nome: loteAtualizado.nome,
-            data_fechamento: loteAtualizado.data, // Campo correto
+            data_fechamento: loteAtualizado.data, // Enviar string diretamente
           })
           .eq("id", loteEditando.id)
 

@@ -561,6 +561,10 @@ export default function Home() {
 
   const cancelarEdicaoMotor = () => {
     setMotorEditando(null)
+    setMotorEditandoServicos([])
+    setMotorEditandoValores({})
+    setMotorEditandoOperador("")
+    setMotorEditandoObservacoes("")
   }
 
   const removerLote = async (id: string) => {
@@ -868,6 +872,41 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background p-6">
+      <style jsx global>{`
+        .custom-scrollbar {
+          scrollbar-width: auto;
+          scrollbar-color: #cbd5e1 #f1f5f9;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 12px;
+          height: 12px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 6px;
+          border: 2px solid #f1f5f9;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:active {
+          background: #64748b;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-corner {
+          background: #f1f5f9;
+        }
+      `}</style>
+
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold text-foreground">Inova Ecopeças</h1>
@@ -1238,111 +1277,113 @@ export default function Home() {
                         Novo Motor
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogContent className="max-w-2xl max-h-[80vh]">
                       <DialogHeader>
                         <DialogTitle>Adicionar Novo Motor</DialogTitle>
                       </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                      <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="modelo">Modelo do Veículo</Label>
+                              <Input
+                                id="modelo"
+                                value={novoMotor.modelo}
+                                onChange={(e) => setNovoMotor({ ...novoMotor, modelo: e.target.value })}
+                                placeholder="Ex: Honda Civic"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="numero">Número do Motor</Label>
+                              <Input
+                                id="numero"
+                                value={novoMotor.numeroMotor}
+                                onChange={(e) => setNovoMotor({ ...novoMotor, numeroMotor: e.target.value })}
+                                placeholder="Ex: 001"
+                              />
+                            </div>
+                          </div>
+
                           <div>
-                            <Label htmlFor="modelo">Modelo do Veículo</Label>
+                            <Label htmlFor="operador">Operador Responsável</Label>
                             <Input
-                              id="modelo"
-                              value={novoMotor.modelo}
-                              onChange={(e) => setNovoMotor({ ...novoMotor, modelo: e.target.value })}
-                              placeholder="Ex: Honda Civic"
+                              id="operador"
+                              value={novoMotor.operador}
+                              onChange={(e) => setNovoMotor({ ...novoMotor, operador: e.target.value })}
+                              placeholder="Ex: João Silva"
                             />
                           </div>
+
                           <div>
-                            <Label htmlFor="numero">Número do Motor</Label>
-                            <Input
-                              id="numero"
-                              value={novoMotor.numeroMotor}
-                              onChange={(e) => setNovoMotor({ ...novoMotor, numeroMotor: e.target.value })}
-                              placeholder="Ex: 001"
+                            <Label htmlFor="observacoes">Observações</Label>
+                            <Textarea
+                              id="observacoes"
+                              value={novoMotor.observacoes}
+                              onChange={(e) => setNovoMotor({ ...novoMotor, observacoes: e.target.value })}
+                              placeholder="Informações complementares sobre o motor..."
+                              rows={3}
                             />
                           </div>
-                        </div>
 
-                        <div>
-                          <Label htmlFor="operador">Operador Responsável</Label>
-                          <Input
-                            id="operador"
-                            value={novoMotor.operador}
-                            onChange={(e) => setNovoMotor({ ...novoMotor, operador: e.target.value })}
-                            placeholder="Ex: João Silva"
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="observacoes">Observações</Label>
-                          <Textarea
-                            id="observacoes"
-                            value={novoMotor.observacoes}
-                            onChange={(e) => setNovoMotor({ ...novoMotor, observacoes: e.target.value })}
-                            placeholder="Informações complementares sobre o motor..."
-                            rows={3}
-                          />
-                        </div>
-
-                        <div>
-                          <Label>Serviços</Label>
-                          <div className="grid grid-cols-1 gap-3 mt-2 max-h-60 overflow-y-auto border rounded-lg p-3">
-                            {tiposServicos.map((servico) => (
-                              <div key={servico} className="space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`servico-${servico}`}
-                                    checked={novoMotor.servicosSelecionados.includes(servico)}
-                                    onCheckedChange={(checked) => toggleServicoNovoMotor(servico, checked as boolean)}
-                                  />
-                                  <Label htmlFor={`servico-${servico}`} className="text-sm">
-                                    {servico}
-                                  </Label>
+                          <div>
+                            <Label>Serviços</Label>
+                            <div className="grid grid-cols-1 gap-3 mt-2 max-h-60 overflow-y-auto custom-scrollbar border rounded-lg p-3">
+                              {tiposServicos.map((servico) => (
+                                <div key={servico} className="space-y-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`servico-${servico}`}
+                                      checked={novoMotor.servicosSelecionados.includes(servico)}
+                                      onCheckedChange={(checked) => toggleServicoNovoMotor(servico, checked as boolean)}
+                                    />
+                                    <Label htmlFor={`servico-${servico}`} className="text-sm">
+                                      {servico}
+                                    </Label>
+                                  </div>
+                                  {novoMotor.servicosSelecionados.includes(servico) && (
+                                    <Input
+                                      type="number"
+                                      placeholder="Valor (R$)"
+                                      value={novoMotor.valoresServicos[servico] || ""}
+                                      onChange={(e) =>
+                                        setNovoMotor({
+                                          ...novoMotor,
+                                          valoresServicos: {
+                                            ...novoMotor.valoresServicos,
+                                            [servico]: e.target.value,
+                                          },
+                                        })
+                                      }
+                                      className="ml-6 w-32"
+                                    />
+                                  )}
                                 </div>
-                                {novoMotor.servicosSelecionados.includes(servico) && (
-                                  <Input
-                                    type="number"
-                                    placeholder="Valor (R$)"
-                                    value={novoMotor.valoresServicos[servico] || ""}
-                                    onChange={(e) =>
-                                      setNovoMotor({
-                                        ...novoMotor,
-                                        valoresServicos: {
-                                          ...novoMotor.valoresServicos,
-                                          [servico]: e.target.value,
-                                        },
-                                      })
-                                    }
-                                    className="ml-6 w-32"
-                                  />
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label htmlFor="lote-select">Lote</Label>
-                          <Select
-                            value={novoMotor.lote}
-                            onValueChange={(value) => setNovoMotor({ ...novoMotor, lote: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o lote" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {lotes.map((lote) => (
-                                <SelectItem key={lote.id} value={lote.id}>
-                                  {lote.nome}
-                                </SelectItem>
                               ))}
-                            </SelectContent>
-                          </Select>
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label htmlFor="lote-select">Lote</Label>
+                            <Select
+                              value={novoMotor.lote}
+                              onValueChange={(value) => setNovoMotor({ ...novoMotor, lote: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione o lote" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {lotes.map((lote) => (
+                                  <SelectItem key={lote.id} value={lote.id}>
+                                    {lote.nome}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button onClick={adicionarMotor} className="w-full">
+                            Adicionar Motor
+                          </Button>
                         </div>
-                        <Button onClick={adicionarMotor} className="w-full">
-                          Adicionar Motor
-                        </Button>
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -1350,7 +1391,7 @@ export default function Home() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="max-h-96 overflow-y-auto space-y-2 pr-2">
+              <div className="max-h-96 overflow-y-auto custom-scrollbar space-y-2 pr-2">
                 {motoresFiltrados.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     {temFiltrosAtivos ? "Nenhum motor encontrado com os filtros aplicados" : "Nenhum motor cadastrado"}
@@ -1403,90 +1444,92 @@ export default function Home() {
                                     <Edit className="h-4 w-4" />
                                   </Button>
                                 </DialogTrigger>
-                                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                                <DialogContent className="max-w-2xl max-h-[80vh]">
                                   <DialogHeader>
                                     <DialogTitle>Editar Motor - {motor.modelo}</DialogTitle>
                                   </DialogHeader>
-                                  <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div>
-                                        <Label>Modelo</Label>
-                                        <Input value={motor.modelo} disabled />
+                                  <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+                                    <div className="space-y-4">
+                                      <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                          <Label>Modelo</Label>
+                                          <Input value={motor.modelo} disabled />
+                                        </div>
+                                        <div>
+                                          <Label>Número</Label>
+                                          <Input value={motor.numeroMotor} disabled />
+                                        </div>
                                       </div>
+
                                       <div>
-                                        <Label>Número</Label>
-                                        <Input value={motor.numeroMotor} disabled />
+                                        <Label htmlFor="edit-operador">Operador Responsável</Label>
+                                        <Input
+                                          id="edit-operador"
+                                          value={motorEditandoOperador}
+                                          onChange={(e) => setMotorEditandoOperador(e.target.value)}
+                                          placeholder="Ex: João Silva"
+                                        />
                                       </div>
-                                    </div>
 
-                                    <div>
-                                      <Label htmlFor="edit-operador">Operador Responsável</Label>
-                                      <Input
-                                        id="edit-operador"
-                                        value={motorEditandoOperador}
-                                        onChange={(e) => setMotorEditandoOperador(e.target.value)}
-                                        placeholder="Ex: João Silva"
-                                      />
-                                    </div>
+                                      <div>
+                                        <Label htmlFor="edit-observacoes">Observações</Label>
+                                        <Textarea
+                                          id="edit-observacoes"
+                                          value={motorEditandoObservacoes}
+                                          onChange={(e) => setMotorEditandoObservacoes(e.target.value)}
+                                          placeholder="Informações complementares sobre o motor..."
+                                          rows={3}
+                                        />
+                                      </div>
 
-                                    <div>
-                                      <Label htmlFor="edit-observacoes">Observações</Label>
-                                      <Textarea
-                                        id="edit-observacoes"
-                                        value={motorEditandoObservacoes}
-                                        onChange={(e) => setMotorEditandoObservacoes(e.target.value)}
-                                        placeholder="Informações complementares sobre o motor..."
-                                        rows={3}
-                                      />
-                                    </div>
-
-                                    <div>
-                                      <Label>Serviços</Label>
-                                      <div className="grid grid-cols-1 gap-3 mt-2 max-h-60 overflow-y-auto border rounded-lg p-3">
-                                        {tiposServicos.map((servico) => (
-                                          <div key={servico} className="space-y-2">
-                                            <div className="flex items-center space-x-2">
-                                              <Checkbox
-                                                id={`edit-servico-${servico}`}
-                                                checked={motorEditandoServicos.includes(servico)}
-                                                onCheckedChange={(checked) =>
-                                                  toggleServicoEdicao(servico, checked as boolean)
-                                                }
-                                              />
-                                              <Label htmlFor={`edit-servico-${servico}`} className="text-sm">
-                                                {servico}
-                                              </Label>
+                                      <div>
+                                        <Label>Serviços</Label>
+                                        <div className="grid grid-cols-1 gap-3 mt-2 max-h-60 overflow-y-auto custom-scrollbar border rounded-lg p-3">
+                                          {tiposServicos.map((servico) => (
+                                            <div key={servico} className="space-y-2">
+                                              <div className="flex items-center space-x-2">
+                                                <Checkbox
+                                                  id={`edit-servico-${servico}`}
+                                                  checked={motorEditandoServicos.includes(servico)}
+                                                  onCheckedChange={(checked) =>
+                                                    toggleServicoEdicao(servico, checked as boolean)
+                                                  }
+                                                />
+                                                <Label htmlFor={`edit-servico-${servico}`} className="text-sm">
+                                                  {servico}
+                                                </Label>
+                                              </div>
+                                              {motorEditandoServicos.includes(servico) && (
+                                                <Input
+                                                  type="number"
+                                                  placeholder="Valor (R$)"
+                                                  value={motorEditandoValores[servico] || ""}
+                                                  onChange={(e) =>
+                                                    setMotorEditandoValores({
+                                                      ...motorEditandoValores,
+                                                      [servico]: e.target.value,
+                                                    })
+                                                  }
+                                                  className="ml-6 w-32"
+                                                />
+                                              )}
                                             </div>
-                                            {motorEditandoServicos.includes(servico) && (
-                                              <Input
-                                                type="number"
-                                                placeholder="Valor (R$)"
-                                                value={motorEditandoValores[servico] || ""}
-                                                onChange={(e) =>
-                                                  setMotorEditandoValores({
-                                                    ...motorEditandoValores,
-                                                    [servico]: e.target.value,
-                                                  })
-                                                }
-                                                className="ml-6 w-32"
-                                              />
-                                            )}
-                                          </div>
-                                        ))}
+                                          ))}
+                                        </div>
                                       </div>
-                                    </div>
 
-                                    <div className="flex gap-2">
-                                      <Button onClick={salvarEdicaoMotor} className="flex-1">
-                                        Salvar Alterações
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        onClick={cancelarEdicaoMotor}
-                                        className="flex-1 bg-transparent"
-                                      >
-                                        Cancelar
-                                      </Button>
+                                      <div className="flex gap-2">
+                                        <Button onClick={salvarEdicaoMotor} className="flex-1">
+                                          Salvar Alterações
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          onClick={cancelarEdicaoMotor}
+                                          className="flex-1 bg-transparent"
+                                        >
+                                          Cancelar
+                                        </Button>
+                                      </div>
                                     </div>
                                   </div>
                                 </DialogContent>

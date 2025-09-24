@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Trash2, Plus, FileText, TrendingUp, Search, X, Edit, Database, Wifi, WifiOff } from "lucide-react"
 import { supabase, isSupabaseConfigured, testSupabaseConnection } from "@/lib/supabase"
+import { SetupGuide } from "@/components/setup-guide"
 
 interface Motor {
   id: string
@@ -36,7 +37,9 @@ interface Lote {
 export default function Home() {
   const [isOnlineMode, setIsOnlineMode] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [connectionStatus, setConnectionStatus] = useState<"checking" | "online" | "offline">("checking")
+  const [connectionStatus, setConnectionStatus] = useState<"checking" | "online" | "offline" | "setup_needed">(
+    "checking",
+  )
   const [showConnectionDetails, setShowConnectionDetails] = useState(false)
 
   const [lotes, setLotes] = useState<Lote[]>([])
@@ -116,29 +119,35 @@ export default function Home() {
     console.log("[v0] Tentando carregar dados do Supabase...")
 
     try {
-      // Carregar lotes
-      const { data: lotesData, error: lotesError } = await supabase
+      const { data: lotesData, error: lotesError } = await supabase.from("lotes").select("*").limit(1)
+
+      if (lotesError) {
+        // Se erro indica que a tabela não existe, mostrar guia de setup
+        if (lotesError.code === "PGRST116" || lotesError.message.includes("does not exist")) {
+          console.log("[v0] Tabelas não encontradas - setup necessário")
+          setConnectionStatus("setup_needed")
+          return
+        }
+        throw lotesError
+      }
+
+      // Carregar lotes completos
+      const { data: todosLotes, error: todosLotesError } = await supabase
         .from("lotes")
         .select("*")
         .order("created_at", { ascending: false })
 
-      if (lotesError) {
-        console.log("[v0] Erro ao carregar lotes:", lotesError)
-        throw lotesError
-      }
+      if (todosLotesError) throw todosLotesError
 
-      console.log("[v0] Lotes carregados:", lotesData?.length || 0)
+      console.log("[v0] Lotes carregados:", todosLotes?.length || 0)
 
-      // Carregar apenas motores sem serviços por enquanto
+      // Carregar motores
       const { data: motoresData, error: motoresError } = await supabase
         .from("motores")
         .select("*")
         .order("created_at", { ascending: false })
 
-      if (motoresError) {
-        console.log("[v0] Erro ao carregar motores:", motoresError)
-        throw motoresError
-      }
+      if (motoresError) throw motoresError
 
       console.log("[v0] Motores carregados:", motoresData?.length || 0)
 
@@ -154,7 +163,7 @@ export default function Home() {
           data: motor.created_at.split("T")[0],
         })) || []
 
-      setLotes(lotesData || [])
+      setLotes(todosLotes || [])
       setMotores(motoresFormatados)
       setConnectionStatus("online")
       console.log("[v0] Dados carregados com sucesso - status: online")
@@ -660,6 +669,20 @@ export default function Home() {
         <div className="text-center space-y-4">
           <Database className="h-12 w-12 animate-spin mx-auto text-primary" />
           <p className="text-lg">Carregando sistema...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (connectionStatus === "setup_needed") {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-bold text-foreground">Inova Ecopeças</h1>
+            <p className="text-muted-foreground">Sistema de Controle de Gastos com Motores</p>
+          </div>
+          <SetupGuide />
         </div>
       </div>
     )

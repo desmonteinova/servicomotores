@@ -456,7 +456,7 @@ export default function Home() {
               operador: novoMotor.operador,
               observacoes: novoMotor.observacoes,
               lote_id: novoMotor.lote,
-              servicos: JSON.stringify(servicos),
+              // servicos: JSON.stringify(servicos), // Removido temporariamente
             })
             .select()
             .single()
@@ -643,7 +643,7 @@ export default function Home() {
             .update({
               operador: motorEditandoOperador || "",
               observacoes: motorEditandoObservacoes || "",
-              servicos: JSON.stringify(servicosAtualizados),
+              // servicos: JSON.stringify(servicosAtualizados), // Removido temporariamente
               updated_at: new Date().toISOString(),
             })
             .eq("id", motorEditando.id)

@@ -446,7 +446,6 @@ export default function Home() {
       console.log("[v0] Motor criado:", motor)
 
       try {
-        // Salvar no Supabase se disponível
         if (supabase && connectionStatus === "online") {
           const { data: supabaseData, error } = await supabase
             .from("motores")
@@ -456,31 +455,24 @@ export default function Home() {
               operador: novoMotor.operador,
               observacoes: novoMotor.observacoes,
               lote_id: novoMotor.lote,
-              // servicos: JSON.stringify(servicos), // Removido temporariamente
+              servicos: JSON.stringify(servicos), // Reativando salvamento de serviços
             })
             .select()
             .single()
 
           if (error) {
             console.error("[v0] Erro ao salvar motor no Supabase:", error)
-            throw error
+            console.log("[v0] Continuando com salvamento local devido ao erro no Supabase")
+          } else {
+            motor.id = supabaseData.id
+            console.log("[v0] Motor salvo no Supabase com sucesso:", supabaseData)
           }
-
-          // Usar ID do Supabase
-          motor.id = supabaseData.id
-          console.log("[v0] Motor salvo no Supabase com sucesso:", supabaseData)
         }
 
         console.log("[v0] Atualizando estado local...")
         const novosMotores = [...motores, motor]
         setMotores(novosMotores)
-
-        try {
-          salvarDadosLocal(lotes, novosMotores)
-          console.log("[v0] Motor salvo no localStorage com sucesso")
-        } catch (localStorageError) {
-          console.error("[v0] Erro ao salvar no localStorage:", localStorageError)
-        }
+        salvarDadosLocal(lotes, novosMotores)
 
         setTimeout(() => {
           setNovoMotor({
@@ -496,10 +488,13 @@ export default function Home() {
           setModalNovoMotorAberto(false)
           console.log("[v0] Formulário resetado e modal fechado")
         }, 100)
+
+        if (connectionStatus !== "online") {
+          alert("Motor salvo localmente. Dados serão sincronizados quando a conexão for restabelecida.")
+        }
       } catch (supabaseError) {
         console.error("[v0] Erro ao salvar no Supabase:", supabaseError)
 
-        // Mesmo com erro no Supabase, salvar localmente
         console.log("[v0] Salvando apenas localmente devido ao erro no Supabase")
         const novosMotores = [...motores, motor]
         setMotores(novosMotores)
@@ -550,7 +545,6 @@ export default function Home() {
     }
 
     try {
-      // Atualizar no Supabase se disponível
       if (supabase && connectionStatus === "online") {
         const dataFormatada = converterDataBrasileiraParaBanco(loteEditandoDados.data)
         const { error } = await supabase
@@ -564,20 +558,40 @@ export default function Home() {
 
         if (error) {
           console.error("[v0] Erro ao atualizar lote no Supabase:", error)
-          throw error
+          console.log("[v0]Continuing with salvamento local devido ao erro no Supabase")
+        } else {
+          console.log("[v0] Lote atualizado no Supabase com sucesso")
         }
-
-        console.log("[v0] Lote atualizado no Supabase com sucesso")
       }
 
-      setLotes(lotes.map((l) => (l.id === loteEditando.id ? loteAtualizado : l)))
+      const novosLotes = lotes.map((l) => (l.id === loteEditando.id ? loteAtualizado : l))
+      setLotes(novosLotes)
+      salvarDadosLocal(novosLotes, motores)
+
       setLoteEditando(null)
       setLoteEditandoDados({ nome: "", data: "" })
       setModalEditarLoteAberto(false)
-      console.log("[v0] Lote editado no estado local:", loteAtualizado)
+      console.log("[v0] Lote editado com sucesso:", loteAtualizado)
+
+      if (connectionStatus !== "online") {
+        alert("Lote editado localmente. Dados serão sincronizados quando a conexão for restabelecida.")
+      }
     } catch (error) {
       console.error("[v0] Erro ao editar lote:", error)
-      alert("Erro ao salvar alterações do lote.")
+      try {
+        const novosLotes = lotes.map((l) => (l.id === loteEditando.id ? loteAtualizado : l))
+        setLotes(novosLotes)
+        salvarDadosLocal(novosLotes, motores)
+
+        setLoteEditando(null)
+        setLoteEditandoDados({ nome: "", data: "" })
+        setModalEditarLoteAberto(false)
+
+        alert("Lote editado localmente. Erro na sincronização com a nuvem.")
+      } catch (localError) {
+        console.error("[v0] Erro crítico ao salvar localmente:", localError)
+        alert("Erro ao salvar alterações do lote.")
+      }
     }
   }
 
@@ -636,37 +650,29 @@ export default function Home() {
       console.log("[v0] Motor atualizado:", motorAtualizado)
 
       try {
-        // Atualizar no Supabase se disponível
         if (supabase && connectionStatus === "online") {
           const { error } = await supabase
             .from("motores")
             .update({
               operador: motorEditandoOperador || "",
               observacoes: motorEditandoObservacoes || "",
-              // servicos: JSON.stringify(servicosAtualizados), // Removido temporariamente
+              servicos: JSON.stringify(servicosAtualizados), // Reativando salvamento de serviços
               updated_at: new Date().toISOString(),
             })
             .eq("id", motorEditando.id)
 
           if (error) {
             console.error("[v0] Erro ao atualizar motor no Supabase:", error)
-            throw error
+            console.log("[v0]Continuing with salvamento local devido ao erro no Supabase")
+          } else {
+            console.log("[v0] Motor atualizado no Supabase com sucesso")
           }
-
-          console.log("[v0] Motor atualizado no Supabase com sucesso")
         }
 
         console.log("[v0] Atualizando estado local...")
         const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
         setMotores(motoresAtualizados)
-
-        try {
-          console.log("[v0] Salvando no localStorage...")
-          salvarDadosLocal(lotes, motoresAtualizados)
-          console.log("[v0] Motor editado salvo no localStorage com sucesso")
-        } catch (localStorageError) {
-          console.error("[v0] Erro ao salvar no localStorage:", localStorageError)
-        }
+        salvarDadosLocal(lotes, motoresAtualizados)
 
         console.log("[v0] Limpando estados de edição...")
         setTimeout(() => {
@@ -678,10 +684,13 @@ export default function Home() {
           setMotorEditandoNomesPecas({})
           console.log("[v0] Estados de edição limpos - modal fechado")
         }, 100)
+
+        if (connectionStatus !== "online") {
+          alert("Motor editado localmente. Dados serão sincronizados quando a conexão for restabelecida.")
+        }
       } catch (supabaseError) {
         console.error("[v0] Erro ao salvar no Supabase:", supabaseError)
 
-        // Mesmo com erro no Supabase, salvar localmente
         console.log("[v0] Salvando apenas localmente devido ao erro no Supabase")
         const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
         setMotores(motoresAtualizados)
@@ -701,17 +710,55 @@ export default function Home() {
     } catch (error) {
       console.error("[v0] Erro crítico durante salvamento:", error)
 
-      setTimeout(() => {
-        setMotorEditando(null)
-        setMotorEditandoServicos([])
-        setMotorEditandoValores({})
-        setMotorEditandoOperador("")
-        setMotorEditandoObservacoes("")
-        setMotorEditandoNomesPecas({})
-        console.log("[v0] Estados limpos após erro - modal fechado forçadamente")
-      }, 100)
+      try {
+        const servicosAtualizados = motorEditandoServicos.map((tipo) => {
+          const valor = Number.parseFloat(motorEditandoValores[tipo] || "0")
+          const servicoObj: any = {
+            tipo,
+            valor: isNaN(valor) ? 0 : valor,
+          }
+          if (tipo === "Peças adicionais" && motorEditandoNomesPecas[tipo]) {
+            servicoObj.nomePeca = motorEditandoNomesPecas[tipo]
+          }
+          return servicoObj
+        })
 
-      alert("Erro ao salvar motor. Verifique o console para mais detalhes.")
+        const motorAtualizado = {
+          ...motorEditando,
+          operador: motorEditandoOperador || "",
+          observacoes: motorEditandoObservacoes || "",
+          servicos: servicosAtualizados,
+        }
+
+        const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
+        setMotores(motoresAtualizados)
+        salvarDadosLocal(lotes, motoresAtualizados)
+
+        setTimeout(() => {
+          setMotorEditando(null)
+          setMotorEditandoServicos([])
+          setMotorEditandoValores({})
+          setMotorEditandoOperador("")
+          setMotorEditandoObservacoes("")
+          setMotorEditandoNomesPecas({})
+        }, 100)
+
+        alert("Motor editado localmente. Erro na sincronização com a nuvem.")
+      } catch (localError) {
+        console.error("[v0] Erro crítico ao salvar localmente:", localError)
+
+        setTimeout(() => {
+          setMotorEditando(null)
+          setMotorEditandoServicos([])
+          setMotorEditandoValores({})
+          setMotorEditandoOperador("")
+          setMotorEditandoObservacoes("")
+          setMotorEditandoNomesPecas({})
+          console.log("[v0] Estados limpos após erro - modal fechado forçadamente")
+        }, 100)
+
+        alert("Erro crítico ao salvar motor. Verifique o console para mais detalhes.")
+      }
     }
   }
 
@@ -895,7 +942,112 @@ export default function Home() {
   }
 
   const imprimirRelatorioLote = (loteId: string) => {
-    alert("Função de impressão será implementada em breve")
+    const lote = lotes.find((l) => l.id === loteId)
+    if (!lote) {
+      alert("Lote não encontrado!")
+      return
+    }
+
+    const motoresDoLote = motores.filter((m) => m.lote === loteId)
+    const gastoTotal = motoresDoLote.reduce(
+      (sum, m) => sum + m.servicos.reduce((servicoSum, servico) => servicoSum + servico.valor, 0),
+      0,
+    )
+
+    // Criar conteúdo do relatório
+    const relatorioContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Relatório - ${lote.nome}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .info { margin-bottom: 20px; }
+          .motor { border: 1px solid #ddd; margin: 10px 0; padding: 15px; }
+          .servico { margin: 5px 0; padding: 5px; background: #f5f5f5; }
+          .total { font-weight: bold; color: #0066cc; }
+          table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Inova Ecopeças</h1>
+          <h2>Relatório do Lote: ${lote.nome}</h2>
+          <p>Data: ${lote.data}</p>
+          <p>Gerado em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}</p>
+        </div>
+        
+        <div class="info">
+          <h3>Resumo do Lote</h3>
+          <p><strong>Total de Motores:</strong> ${motoresDoLote.length}</p>
+          <p><strong>Gasto Total:</strong> R$ ${gastoTotal.toLocaleString("pt-BR")}</p>
+          <p><strong>Média por Motor:</strong> R$ ${motoresDoLote.length > 0 ? (gastoTotal / motoresDoLote.length).toLocaleString("pt-BR") : "0"}</p>
+        </div>
+
+        <h3>Detalhes dos Motores</h3>
+        ${motoresDoLote
+          .map((motor) => {
+            const valorTotalMotor = motor.servicos.reduce((sum, servico) => sum + servico.valor, 0)
+            return `
+            <div class="motor">
+              <h4>${motor.modelo} - Motor ${motor.numeroMotor}</h4>
+              <p><strong>Operador:</strong> ${motor.operador}</p>
+              <p><strong>Data de Entrada:</strong> ${motor.data}</p>
+              ${motor.observacoes ? `<p><strong>Observações:</strong> ${motor.observacoes}</p>` : ""}
+              
+              <table>
+                <thead>
+                  <tr>
+                    <th>Serviço</th>
+                    <th>Peça</th>
+                    <th>Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${motor.servicos
+                    .map(
+                      (servico) => `
+                    <tr>
+                      <td>${servico.tipo}</td>
+                      <td>${servico.nomePeca || "-"}</td>
+                      <td>R$ ${servico.valor.toLocaleString("pt-BR")}</td>
+                    </tr>
+                  `,
+                    )
+                    .join("")}
+                  <tr class="total">
+                    <td colspan="2"><strong>Total do Motor</strong></td>
+                    <td><strong>R$ ${valorTotalMotor.toLocaleString("pt-BR")}</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          `
+          })
+          .join("")}
+        
+        <div style="margin-top: 30px; text-align: center; font-size: 18px;">
+          <strong>TOTAL GERAL DO LOTE: R$ ${gastoTotal.toLocaleString("pt-BR")}</strong>
+        </div>
+      </body>
+      </html>
+    `
+
+    // Abrir nova janela e imprimir
+    const printWindow = window.open("", "_blank")
+    if (printWindow) {
+      printWindow.document.write(relatorioContent)
+      printWindow.document.close()
+      printWindow.focus()
+      setTimeout(() => {
+        printWindow.print()
+      }, 500)
+    } else {
+      alert("Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está desabilitado.")
+    }
   }
 
   if (isLoading) {

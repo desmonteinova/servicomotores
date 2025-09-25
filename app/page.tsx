@@ -23,6 +23,7 @@ interface Motor {
   servicos: Array<{
     tipo: string
     valor: number
+    nomePeca?: string // Adicionado campo opcional para nome da peça
   }>
   lote: string
   data: string // Data de entrada do motor
@@ -106,6 +107,7 @@ export default function Home() {
     observacoes: "",
     servicosSelecionados: [] as string[],
     valoresServicos: {} as Record<string, string>,
+    nomesPecas: {} as Record<string, string>, // Adicionado estado para nomes das peças
     lote: "",
   })
 
@@ -114,6 +116,7 @@ export default function Home() {
   const [motorEditandoValores, setMotorEditandoValores] = useState<Record<string, string>>({})
   const [motorEditandoOperador, setMotorEditandoOperador] = useState("")
   const [motorEditandoObservacoes, setMotorEditandoObservacoes] = useState("")
+  const [motorEditandoNomesPecas, setMotorEditandoNomesPecas] = useState<Record<string, string>>({}) // Adicionado estado para edição de nomes das peças
 
   const [motorDetalhes, setMotorDetalhes] = useState<Motor | null>(null)
   const [modalDetalhesAberto, setModalDetalhesAberto] = useState(false)
@@ -164,6 +167,7 @@ export default function Home() {
     "Troca de bronzina de biela",
     "Troca de mancal",
     "Troca de biela",
+    "Peças adicionais", // Adicionado novo serviço
   ]
 
   const exportData = () => {
@@ -442,6 +446,7 @@ export default function Home() {
     const servicos = novoMotor.servicosSelecionados.map((tipo) => ({
       tipo,
       valor: Number.parseFloat(novoMotor.valoresServicos[tipo] || "0"),
+      ...(tipo === "Peças adicionais" && novoMotor.nomesPecas[tipo] ? { nomePeca: novoMotor.nomesPecas[tipo] } : {}), // Incluir nome da peça se for "Peças adicionais"
     }))
 
     const dataEntrada = new Date().toLocaleDateString("pt-BR")
@@ -500,6 +505,7 @@ export default function Home() {
       observacoes: "", // Reset do campo observações
       servicosSelecionados: [],
       valoresServicos: {},
+      nomesPecas: {}, // Reset do campo nomes das peças
       lote: "",
     })
     setModalNovoMotorAberto(false)
@@ -573,10 +579,15 @@ export default function Home() {
     setMotorEditandoOperador(motor.operador) // Inicializar estado de edição do operador
     setMotorEditandoObservacoes(motor.observacoes) // Inicializar estado de edição das observações
     const valores: Record<string, string> = {}
+    const nomesPecas: Record<string, string> = {} // Inicializar nomes das peças para edição
     motor.servicos.forEach((servico) => {
       valores[servico.tipo] = servico.valor.toString()
+      if (servico.nomePeca) {
+        nomesPecas[servico.tipo] = servico.nomePeca // Carregar nome da peça se existir
+      }
     })
     setMotorEditandoValores(valores)
+    setMotorEditandoNomesPecas(nomesPecas) // Definir estado dos nomes das peças
   }
 
   const salvarEdicaoMotor = async () => {
@@ -588,6 +599,9 @@ export default function Home() {
       const servicosAtualizados = motorEditandoServicos.map((tipo) => ({
         tipo,
         valor: Number.parseFloat(motorEditandoValores[tipo] || "0"),
+        ...(tipo === "Peças adicionais" && motorEditandoNomesPecas[tipo]
+          ? { nomePeca: motorEditandoNomesPecas[tipo] }
+          : {}), // Incluir nome da peça na edição
       }))
 
       const motorAtualizado = {
@@ -629,6 +643,7 @@ export default function Home() {
       setMotorEditandoValores({})
       setMotorEditandoOperador("")
       setMotorEditandoObservacoes("")
+      setMotorEditandoNomesPecas({}) // Limpar estado dos nomes das peças
 
       console.log("[v0] Estados de edição limpos - modal deve fechar automaticamente")
     } catch (error) {
@@ -639,6 +654,7 @@ export default function Home() {
       setMotorEditandoValores({})
       setMotorEditandoOperador("")
       setMotorEditandoObservacoes("")
+      setMotorEditandoNomesPecas({}) // Limpar estado dos nomes das peças mesmo com erro
     }
   }
 
@@ -648,6 +664,7 @@ export default function Home() {
     setMotorEditandoValores({})
     setMotorEditandoOperador("")
     setMotorEditandoObservacoes("")
+    setMotorEditandoNomesPecas({}) // Limpar estado dos nomes das peças ao cancelar
   }
 
   const abrirDetalhesMotor = (motor: Motor) => {
@@ -783,6 +800,11 @@ export default function Home() {
           ...novoMotor.valoresServicos,
           [servico]: "",
         },
+        nomesPecas: {
+          // Limpar nome da peça ao desmarcar serviço
+          ...novoMotor.nomesPecas,
+          [servico]: "",
+        },
       })
     }
   }
@@ -793,8 +815,11 @@ export default function Home() {
     } else {
       setMotorEditandoServicos(motorEditandoServicos.filter((s) => s !== servico))
       const novosValores = { ...motorEditandoValores }
+      const novosNomesPecas = { ...motorEditandoNomesPecas } // Limpar nome da peça ao desmarcar na edição
       delete novosValores[servico]
+      delete novosNomesPecas[servico] // Remover nome da peça
       setMotorEditandoValores(novosValores)
+      setMotorEditandoNomesPecas(novosNomesPecas) // Atualizar estado dos nomes das peças
     }
   }
 
@@ -989,7 +1014,12 @@ export default function Home() {
                                     key={index}
                                     className="flex justify-between items-center py-1 border-b border-muted last:border-b-0"
                                   >
-                                    <span className="text-sm text-muted-foreground">{servico.tipo}</span>
+                                    <div className="flex-1">
+                                      <span className="text-sm text-muted-foreground">{servico.tipo}</span>
+                                      {servico.nomePeca && ( // Mostrar nome da peça se existir
+                                        <div className="text-xs text-blue-600 italic">Peça: {servico.nomePeca}</div>
+                                      )}
+                                    </div>
                                     <span className="text-sm font-medium text-primary">
                                       R$ {servico.valor.toLocaleString("pt-BR")}
                                     </span>
@@ -1320,21 +1350,40 @@ export default function Home() {
                                     </Label>
                                   </div>
                                   {novoMotor.servicosSelecionados.includes(servico) && (
-                                    <Input
-                                      type="number"
-                                      placeholder="Valor (R$)"
-                                      value={novoMotor.valoresServicos[servico] || ""}
-                                      onChange={(e) =>
-                                        setNovoMotor({
-                                          ...novoMotor,
-                                          valoresServicos: {
-                                            ...novoMotor.valoresServicos,
-                                            [servico]: e.target.value,
-                                          },
-                                        })
-                                      }
-                                      className="ml-6 w-32"
-                                    />
+                                    <div className="ml-6 space-y-2">
+                                      <Input
+                                        type="number"
+                                        placeholder="Valor (R$)"
+                                        value={novoMotor.valoresServicos[servico] || ""}
+                                        onChange={(e) =>
+                                          setNovoMotor({
+                                            ...novoMotor,
+                                            valoresServicos: {
+                                              ...novoMotor.valoresServicos,
+                                              [servico]: e.target.value,
+                                            },
+                                          })
+                                        }
+                                        className="w-32"
+                                      />
+                                      {servico === "Peças adicionais" && ( // Campo adicional para nome da peça
+                                        <Input
+                                          type="text"
+                                          placeholder="Nome da peça"
+                                          value={novoMotor.nomesPecas[servico] || ""}
+                                          onChange={(e) =>
+                                            setNovoMotor({
+                                              ...novoMotor,
+                                              nomesPecas: {
+                                                ...novoMotor.nomesPecas,
+                                                [servico]: e.target.value,
+                                              },
+                                            })
+                                          }
+                                          className="w-48"
+                                        />
+                                      )}
+                                    </div>
                                   )}
                                 </div>
                               ))}
@@ -1482,18 +1531,34 @@ export default function Home() {
                                               </Label>
                                             </div>
                                             {motorEditandoServicos.includes(servico) && (
-                                              <Input
-                                                type="number"
-                                                placeholder="Valor (R$)"
-                                                value={motorEditandoValores[servico] || ""}
-                                                onChange={(e) =>
-                                                  setMotorEditandoValores({
-                                                    ...motorEditandoValores,
-                                                    [servico]: e.target.value,
-                                                  })
-                                                }
-                                                className="ml-6 w-32"
-                                              />
+                                              <div className="ml-6 space-y-2">
+                                                <Input
+                                                  type="number"
+                                                  placeholder="Valor (R$)"
+                                                  value={motorEditandoValores[servico] || ""}
+                                                  onChange={(e) =>
+                                                    setMotorEditandoValores({
+                                                      ...motorEditandoValores,
+                                                      [servico]: e.target.value,
+                                                    })
+                                                  }
+                                                  className="w-32"
+                                                />
+                                                {servico === "Peças adicionais" && ( // Campo adicional para nome da peça na edição
+                                                  <Input
+                                                    type="text"
+                                                    placeholder="Nome da peça"
+                                                    value={motorEditandoNomesPecas[servico] || ""}
+                                                    onChange={(e) =>
+                                                      setMotorEditandoNomesPecas({
+                                                        ...motorEditandoNomesPecas,
+                                                        [servico]: e.target.value,
+                                                      })
+                                                    }
+                                                    className="w-48"
+                                                  />
+                                                )}
+                                              </div>
                                             )}
                                           </div>
                                         ))}
@@ -1648,6 +1713,9 @@ export default function Home() {
                           >
                             <div className="flex-1">
                               <div className="font-medium">{servico.tipo}</div>
+                              {servico.nomePeca && ( // Mostrar nome da peça nos detalhes se existir
+                                <div className="text-sm text-blue-600 italic mt-1">Peça: {servico.nomePeca}</div>
+                              )}
                             </div>
                             <div className="text-right">
                               <div className="text-lg font-bold text-primary">

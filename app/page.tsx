@@ -447,6 +447,12 @@ export default function Home() {
 
       console.log("[v0] Motor criado:", motor)
 
+      const novosMotores = [...motores, motor]
+      setMotores(novosMotores)
+      salvarDadosLocal(lotes, novosMotores)
+      console.log("[v0] Motor salvo localmente com sucesso")
+
+      // Tentar salvar no Supabase em segundo plano
       try {
         if (supabase && connectionStatus === "online") {
           const { data: supabaseData, error } = await supabase
@@ -457,75 +463,41 @@ export default function Home() {
               operador: novoMotor.operador,
               observacoes: novoMotor.observacoes,
               lote_id: novoMotor.lote,
-              servicos: JSON.stringify(servicos), // Reativando salvamento de serviços
+              servicos: JSON.stringify(servicos), // Adicionado para salvar os serviços
             })
             .select()
             .single()
 
           if (error) {
             console.error("[v0] Erro ao salvar motor no Supabase:", error)
-            console.log("[v0]Continuing with salvamento local devido ao erro no Supabase")
+            alert("Motor salvo localmente. Erro na sincronização com a nuvem.")
           } else {
-            motor.id = supabaseData.id
             console.log("[v0] Motor salvo no Supabase com sucesso:", supabaseData)
+            alert("Motor salvo com sucesso!")
           }
-        }
-
-        console.log("[v0] Atualizando estado local...")
-        const novosMotores = [...motores, motor]
-        setMotores(novosMotores)
-        salvarDadosLocal(lotes, novosMotores)
-
-        setTimeout(() => {
-          setNovoMotor({
-            modelo: "",
-            numeroMotor: "",
-            operador: "",
-            observacoes: "",
-            servicosSelecionados: [],
-            valoresServicos: {},
-            nomesPecas: {},
-            lote: "",
-          })
-          setModalNovoMotorAberto(false)
-          console.log("[v0] Formulário resetado e modal fechado")
-        }, 100)
-
-        if (connectionStatus !== "online") {
+        } else {
           alert("Motor salvo localmente. Dados serão sincronizados quando a conexão for restabelecida.")
         }
       } catch (supabaseError) {
         console.error("[v0] Erro ao salvar no Supabase:", supabaseError)
-
-        console.log("[v0] Salvando apenas localmente devido ao erro no Supabase")
-        const novosMotores = [...motores, motor]
-        setMotores(novosMotores)
-        salvarDadosLocal(lotes, novosMotores)
-
-        setTimeout(() => {
-          setNovoMotor({
-            modelo: "",
-            numeroMotor: "",
-            operador: "",
-            observacoes: "",
-            servicosSelecionados: [],
-            valoresServicos: {},
-            nomesPecas: {},
-            lote: "",
-          })
-          setModalNovoMotorAberto(false)
-        }, 100)
-
         alert("Motor salvo localmente. Erro na sincronização com a nuvem.")
       }
+
+      // Limpar formulário e fechar modal
+      setNovoMotor({
+        modelo: "",
+        numeroMotor: "",
+        operador: "",
+        observacoes: "",
+        servicosSelecionados: [],
+        valoresServicos: {},
+        nomesPecas: {},
+        lote: "",
+      })
+      setModalNovoMotorAberto(false)
+      console.log("[v0] Formulário resetado e modal fechado")
     } catch (error) {
       console.error("[v0] Erro crítico ao adicionar motor:", error)
-
-      setTimeout(() => {
-        setModalNovoMotorAberto(false)
-        console.log("[v0] Modal fechado após erro")
-      }, 100)
-
       alert("Erro ao salvar motor. Verifique o console para mais detalhes.")
     }
   }
@@ -652,6 +624,12 @@ export default function Home() {
 
       console.log("[v0] Motor atualizado:", motorAtualizado)
 
+      const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
+      setMotores(motoresAtualizados)
+      salvarDadosLocal(lotes, motoresAtualizados)
+      console.log("[v0] Motor editado localmente com sucesso")
+
+      // Tentar salvar no Supabase em segundo plano
       try {
         if (supabase && connectionStatus === "online") {
           const { error } = await supabase
@@ -659,98 +637,39 @@ export default function Home() {
             .update({
               operador: motorEditandoOperador || "",
               observacoes: motorEditandoObservacoes || "",
-              servicos: JSON.stringify(servicosAtualizados), // Reativando salvamento de serviços
+              servicos: JSON.stringify(servicosAtualizados),
               updated_at: new Date().toISOString(),
             })
             .eq("id", motorEditando.id)
 
           if (error) {
             console.error("[v0] Erro ao atualizar motor no Supabase:", error)
-            console.log("[v0]Continuando com salvamento local devido ao erro no Supabase")
+            alert("Motor editado localmente. Erro na sincronização com a nuvem.")
           } else {
             console.log("[v0] Motor atualizado no Supabase com sucesso")
+            alert("Motor editado com sucesso!")
           }
-        }
-
-        console.log("[v0] Atualizando estado local...")
-        const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
-        setMotores(motoresAtualizados)
-        salvarDadosLocal(lotes, motoresAtualizados)
-
-        console.log("[v0] Limpando estados de edição...")
-        setMotorEditando(null)
-        setMotorEditandoServicos([])
-        setMotorEditandoValores({})
-        setMotorEditandoOperador("")
-        setMotorEditandoObservacoes("")
-        setMotorEditandoNomesPecas({})
-        setModalEdicaoAberto(false)
-        console.log("[v0] Estados de edição limpos - modal fechado")
-
-        if (connectionStatus !== "online") {
+        } else {
           alert("Motor editado localmente. Dados serão sincronizados quando a conexão for restabelecida.")
         }
       } catch (supabaseError) {
         console.error("[v0] Erro ao salvar no Supabase:", supabaseError)
-
-        console.log("[v0] Salvando apenas localmente devido ao erro no Supabase")
-        const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
-        setMotores(motoresAtualizados)
-        salvarDadosLocal(lotes, motoresAtualizados)
-
-        setMotorEditando(null)
-        setMotorEditandoServicos([])
-        setMotorEditandoValores({})
-        setMotorEditandoOperador("")
-        setMotorEditandoObservacoes("")
-        setMotorEditandoNomesPecas({})
-        setModalEdicaoAberto(false)
-
         alert("Motor editado localmente. Erro na sincronização com a nuvem.")
       }
+
+      // Limpar estados de edição e fechar modal
+      console.log("[v0] Limpando estados de edição...")
+      setMotorEditando(null)
+      setMotorEditandoServicos([])
+      setMotorEditandoValores({})
+      setMotorEditandoOperador("")
+      setMotorEditandoObservacoes("")
+      setMotorEditandoNomesPecas({})
+      setModalEdicaoAberto(false)
+      console.log("[v0] Estados de edição limpos - modal fechado")
     } catch (error) {
       console.error("[v0] Erro crítico ao editar motor:", error)
-
-      try {
-        const servicosAtualizados = motorEditandoServicos.map((tipo) => {
-          const valor = Number.parseFloat(motorEditandoValores[tipo] || "0")
-          const servicoObj: any = {
-            tipo,
-            valor: isNaN(valor) ? 0 : valor,
-          }
-
-          if (tipo === "Peças adicionais" && motorEditandoNomesPecas[tipo]) {
-            servicoObj.nomePeca = motorEditandoNomesPecas[tipo]
-          }
-
-          return servicoObj
-        })
-
-        const motorAtualizado = {
-          ...motorEditando,
-          operador: motorEditandoOperador || "",
-          observacoes: motorEditandoObservacoes || "",
-          servicos: servicosAtualizados,
-        }
-
-        const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
-        setMotores(motoresAtualizados)
-        salvarDadosLocal(lotes, motoresAtualizados)
-
-        setMotorEditando(null)
-        setMotorEditandoServicos([])
-        setMotorEditandoValores({})
-        setMotorEditandoOperador("")
-        setMotorEditandoObservacoes("")
-        setMotorEditandoNomesPecas({})
-        setModalEdicaoAberto(false)
-
-        alert("Motor editado localmente. Erro na sincronização com a nuvem.")
-      } catch (localError) {
-        console.error("[v0] Erro crítico ao salvar localmente:", localError)
-        setModalEdicaoAberto(false)
-        alert("Erro ao salvar alterações do motor.")
-      }
+      alert("Erro ao salvar alterações do motor.")
     }
   }
 
@@ -898,13 +817,17 @@ export default function Home() {
     })
   }
 
-  const motoresFiltrados = motores.filter((motor) => {
-    const matchNumeroMotor =
-      filtroNumeroMotor === "" || motor.numeroMotor.toLowerCase().includes(filtroNumeroMotor.toLowerCase())
-    const matchModeloVeiculo =
-      filtroModeloVeiculo === "" || motor.modelo.toLowerCase().includes(filtroModeloVeiculo.toLowerCase())
-    return matchNumeroMotor && matchModeloVeiculo
-  })
+  const motoresFiltrados = motores
+    .filter((motor) => {
+      const matchNumeroMotor =
+        filtroNumeroMotor === "" || motor.numeroMotor.toLowerCase().includes(filtroNumeroMotor.toLowerCase())
+      const matchModeloVeiculo =
+        filtroModeloVeiculo === "" || motor.modelo.toLowerCase().includes(filtroModeloVeiculo.toLowerCase())
+      return matchNumeroMotor && matchModeloVeiculo
+    })
+    .sort((a, b) => {
+      return Number.parseInt(b.id) - Number.parseInt(a.id)
+    })
 
   const totalPaginas = Math.ceil(motoresFiltrados.length / motoresPorPagina)
   const indiceInicial = (paginaAtual - 1) * motoresPorPagina

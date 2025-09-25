@@ -118,6 +118,8 @@ export default function Home() {
   const [motorEditandoObservacoes, setMotorEditandoObservacoes] = useState("")
   const [motorEditandoNomesPecas, setMotorEditandoNomesPecas] = useState<Record<string, string>>({}) // Adicionado estado para edição de nomes das peças
 
+  const [modalEdicaoAberto, setModalEdicaoAberto] = useState(false)
+
   const [motorDetalhes, setMotorDetalhes] = useState<Motor | null>(null)
   const [modalDetalhesAberto, setModalDetalhesAberto] = useState(false)
 
@@ -615,6 +617,7 @@ export default function Home() {
     })
     setMotorEditandoValores(valores)
     setMotorEditandoNomesPecas(nomesPecas) // Definir estado dos nomes das peças
+    setModalEdicaoAberto(true)
   }
 
   const salvarEdicaoMotor = async () => {
@@ -681,6 +684,7 @@ export default function Home() {
         setMotorEditandoOperador("")
         setMotorEditandoObservacoes("")
         setMotorEditandoNomesPecas({})
+        setModalEdicaoAberto(false)
         console.log("[v0] Estados de edição limpos - modal fechado")
 
         if (connectionStatus !== "online") {
@@ -700,6 +704,7 @@ export default function Home() {
         setMotorEditandoOperador("")
         setMotorEditandoObservacoes("")
         setMotorEditandoNomesPecas({})
+        setModalEdicaoAberto(false)
 
         alert("Motor editado localmente. Erro na sincronização com a nuvem.")
       }
@@ -738,10 +743,12 @@ export default function Home() {
         setMotorEditandoOperador("")
         setMotorEditandoObservacoes("")
         setMotorEditandoNomesPecas({})
+        setModalEdicaoAberto(false)
 
         alert("Motor editado localmente. Erro na sincronização com a nuvem.")
       } catch (localError) {
         console.error("[v0] Erro crítico ao salvar localmente:", localError)
+        setModalEdicaoAberto(false)
         alert("Erro ao salvar alterações do motor.")
       }
     }
@@ -754,6 +761,7 @@ export default function Home() {
     setMotorEditandoOperador("")
     setMotorEditandoObservacoes("")
     setMotorEditandoNomesPecas({}) // Limpar estado dos nomes das peças ao cancelar
+    setModalEdicaoAberto(false)
   }
 
   const abrirDetalhesMotor = (motor: Motor) => {
@@ -1699,7 +1707,7 @@ export default function Home() {
                               <Eye className="h-4 w-4" />
                             </Button>
 
-                            <Dialog>
+                            <Dialog open={modalEdicaoAberto} onOpenChange={setModalEdicaoAberto}>
                               <DialogTrigger asChild>
                                 <Button variant="ghost" size="sm" onClick={() => iniciarEdicaoMotor(motor)}>
                                   <Edit className="h-4 w-4" />

@@ -242,58 +242,52 @@ export default function Home() {
       if (motoresError) throw motoresError
 
       console.log("[v0] Motores carregados:", motoresData?.length || 0)
-      console.log("[v0] Dados brutos dos motores:", motoresData) // Debug dos dados brutos
 
       const motoresFormatados =
         motoresData?.map((motor) => {
           let dataEntrada = motor.data_entrada
           if (!dataEntrada) {
-            // Se não tem data de entrada, usar data atual
-            dataEntrada = new Date().toISOString().split("T")[0] // YYYY-MM-DD
+            dataEntrada = new Date().toISOString().split("T")[0]
             console.log(`[v0] Motor ${motor.codigo} sem data - usando data atual: ${dataEntrada}`)
           }
 
           const dataEntradaConvertida = converterDataBancoParaBrasileira(dataEntrada)
-          console.log(`[v0] Motor ${motor.codigo}: data_entrada=${dataEntrada} -> convertida=${dataEntradaConvertida}`) // Debug conversão de data
+
+          // Processar serviços do JSONB
+          let servicos = []
+          try {
+            if (motor.servicos) {
+              if (typeof motor.servicos === "string") {
+                servicos = JSON.parse(motor.servicos)
+              } else {
+                servicos = motor.servicos
+              }
+            }
+          } catch (error) {
+            console.error(`[v0] Erro ao processar serviços do motor ${motor.codigo}:`, error)
+            servicos = []
+          }
 
           return {
             id: motor.id,
             modelo: motor.modelo,
-            numeroMotor: motor.codigo, // Usar campo codigo em vez de numero_motor
+            numeroMotor: motor.codigo,
             operador: motor.operador || "",
             observacoes: motor.observacoes || "",
-            servicos: [], // Array vazio por enquanto - serviços ficam no localStorage
+            servicos: servicos,
             lote: motor.lote_id,
-            data: dataEntradaConvertida, // Converter data de entrada para formato brasileiro
+            data: dataEntradaConvertida,
           }
         }) || []
 
-      console.log("[v0] Motores formatados:", motoresFormatados) // Debug dos motores formatados
-
-      const motoresLocal = localStorage.getItem("inova-motores")
-      let motoresComServicos = motoresFormatados
-
-      if (motoresLocal) {
-        const motoresLocalParsed = JSON.parse(motoresLocal)
-        motoresComServicos = motoresFormatados.map((motorSupabase) => {
-          const motorLocal = motoresLocalParsed.find((m: Motor) => m.numeroMotor === motorSupabase.numeroMotor)
-          if (motorLocal && motorLocal.servicos) {
-            return {
-              ...motorSupabase,
-              servicos: motorLocal.servicos, // Preservar serviços do localStorage
-            }
-          }
-          return motorSupabase
-        })
-        console.log("[v0] Serviços mesclados do localStorage")
-      }
+      console.log("[v0] Motores formatados:", motoresFormatados)
 
       setLotes(lotesFormatados)
-      setMotores(motoresComServicos)
+      setMotores(motoresFormatados)
       setConnectionStatus("online")
       console.log("[v0] Dados carregados com sucesso - status: online")
 
-      salvarDadosLocal(lotesFormatados, motoresComServicos)
+      salvarDadosLocal(lotesFormatados, motoresFormatados)
     } catch (error) {
       console.error("[v0] Erro ao carregar dados do Supabase:", error)
       setConnectionStatus("offline")
@@ -368,69 +362,43 @@ export default function Home() {
 
     console.log("[v0] Tentando adicionar lote:", novoLote)
 
-    if (isOnlineMode && supabase && connectionStatus === "online") {
-      try {
-        const dataFormatadaBanco = converterDataBrasileiraParaBanco(novoLote.data)
-
-        if (!dataFormatadaBanco) {
-          console.error("[v0] Data inválida:", novoLote.data)
-          return
-        }
-
-        console.log("[v0] Inserindo lote no Supabase com dados:", {
-          nome: novoLote.nome,
-          data_fechamento: dataFormatadaBanco,
-        })
-
-        const { data: insertedData, error } = await supabase
-          .from("lotes")
-          .insert([
-            {
-              nome: novoLote.nome,
-              data_fechamento: dataFormatadaBanco, // Enviar no formato YYYY-MM-DD
-            },
-          ])
-          .select()
-
-        if (error) {
-          console.error("[v0] Erro detalhado do Supabase:", error)
-          throw error
-        }
-
-        console.log("[v0] Lote inserido com sucesso no Supabase:", insertedData)
-
-        // Usar o lote retornado do Supabase com ID correto
-        if (insertedData && insertedData[0]) {
-          const loteInserido: Lote = {
-            id: insertedData[0].id,
-            nome: insertedData[0].nome,
-            data: novoLote.data, // Manter formato brasileiro DD/MM/YYYY
-          }
-
-          setLotes([...lotes, loteInserido])
-          setNovoLote({ nome: "", data: "" })
-          setModalNovoLoteAberto(false)
-          console.log("[v0] Lote adicionado ao estado local:", loteInserido)
-          return
-        }
-      } catch (error) {
-        console.error("[v0] Erro ao salvar lote no Supabase:", error)
-        setConnectionStatus("offline")
-        // Continuar com salvamento local em caso de erro
-      }
-    }
-
-    // Fallback para modo offline ou erro
     const lote: Lote = {
       id: Date.now().toString(),
       nome: novoLote.nome,
       data: novoLote.data, // Manter formato brasileiro
     }
 
-    setLotes([...lotes, lote])
-    setNovoLote({ nome: "", data: "" })
-    setModalNovoLoteAberto(false)
-    console.log("[v0] Lote adicionado ao estado local (offline):", lote)
+    try {
+      // Salvar no Supabase se disponível
+      if (supabase && connectionStatus === "online") {
+        const dataFormatada = converterDataBrasileiraParaBanco(novoLote.data)
+        const { data: supabaseData, error } = await supabase
+          .from("lotes")
+          .insert({
+            nome: novoLote.nome,
+            data_fechamento: dataFormatada,
+          })
+          .select()
+          .single()
+
+        if (error) {
+          console.error("[v0] Erro ao salvar lote no Supabase:", error)
+          throw error
+        }
+
+        // Usar ID do Supabase
+        lote.id = supabaseData.id
+        console.log("[v0] Lote salvo no Supabase com sucesso:", supabaseData)
+      }
+
+      setLotes([...lotes, lote])
+      setNovoLote({ nome: "", data: "" })
+      setModalNovoLoteAberto(false)
+      console.log("[v0] Lote adicionado ao estado local:", lote)
+    } catch (error) {
+      console.error("[v0] Erro ao adicionar lote:", error)
+      alert("Erro ao salvar lote. Verifique sua conexão.")
+    }
   }
 
   const adicionarMotor = async () => {
@@ -477,59 +445,84 @@ export default function Home() {
 
       console.log("[v0] Motor criado:", motor)
 
-      if (isOnlineMode && supabase && connectionStatus === "online") {
-        try {
-          const dataParaBanco = converterDataBrasileiraParaBanco(motor.data)
-          console.log("[v0] Salvando no Supabase - data:", dataParaBanco)
-
-          const { error: motorError } = await supabase.from("motores").insert([
-            {
-              codigo: motor.numeroMotor,
-              modelo: motor.modelo,
-              operador: motor.operador,
-              observacoes: motor.observacoes,
-              lote_id: motor.lote,
-              data_entrada: dataParaBanco,
-            },
-          ])
-
-          if (motorError) {
-            console.error("[v0] Erro do Supabase:", motorError)
-            throw motorError
-          }
-          console.log("[v0] Motor salvo no Supabase com sucesso")
-        } catch (supabaseError) {
-          console.error("[v0] Erro ao salvar motor no Supabase:", supabaseError)
-          setConnectionStatus("offline")
-          // Continuar com salvamento local mesmo com erro do Supabase
-        }
-      }
-
-      console.log("[v0] Atualizando estado local...")
-      const novosMotores = [...motores, motor]
-      setMotores(novosMotores)
-
       try {
-        salvarDadosLocal(lotes, novosMotores)
-        console.log("[v0] Motor salvo no localStorage com sucesso")
-      } catch (localStorageError) {
-        console.error("[v0] Erro ao salvar no localStorage:", localStorageError)
-      }
+        // Salvar no Supabase se disponível
+        if (supabase && connectionStatus === "online") {
+          const dataFormatada = converterDataBrasileiraParaBanco(dataEntrada)
+          const { data: supabaseData, error } = await supabase
+            .from("motores")
+            .insert({
+              codigo: novoMotor.numeroMotor,
+              modelo: novoMotor.modelo,
+              operador: novoMotor.operador,
+              observacoes: novoMotor.observacoes,
+              lote_id: novoMotor.lote,
+              data_entrada: dataFormatada,
+              servicos: JSON.stringify(servicos),
+            })
+            .select()
+            .single()
 
-      setTimeout(() => {
-        setNovoMotor({
-          modelo: "",
-          numeroMotor: "",
-          operador: "",
-          observacoes: "",
-          servicosSelecionados: [],
-          valoresServicos: {},
-          nomesPecas: {},
-          lote: "",
-        })
-        setModalNovoMotorAberto(false)
-        console.log("[v0] Formulário resetado e modal fechado")
-      }, 100)
+          if (error) {
+            console.error("[v0] Erro ao salvar motor no Supabase:", error)
+            throw error
+          }
+
+          // Usar ID do Supabase
+          motor.id = supabaseData.id
+          console.log("[v0] Motor salvo no Supabase com sucesso:", supabaseData)
+        }
+
+        console.log("[v0] Atualizando estado local...")
+        const novosMotores = [...motores, motor]
+        setMotores(novosMotores)
+
+        try {
+          salvarDadosLocal(lotes, novosMotores)
+          console.log("[v0] Motor salvo no localStorage com sucesso")
+        } catch (localStorageError) {
+          console.error("[v0] Erro ao salvar no localStorage:", localStorageError)
+        }
+
+        setTimeout(() => {
+          setNovoMotor({
+            modelo: "",
+            numeroMotor: "",
+            operador: "",
+            observacoes: "",
+            servicosSelecionados: [],
+            valoresServicos: {},
+            nomesPecas: {},
+            lote: "",
+          })
+          setModalNovoMotorAberto(false)
+          console.log("[v0] Formulário resetado e modal fechado")
+        }, 100)
+      } catch (supabaseError) {
+        console.error("[v0] Erro ao salvar no Supabase:", supabaseError)
+
+        // Mesmo com erro no Supabase, salvar localmente
+        console.log("[v0] Salvando apenas localmente devido ao erro no Supabase")
+        const novosMotores = [...motores, motor]
+        setMotores(novosMotores)
+        salvarDadosLocal(lotes, novosMotores)
+
+        setTimeout(() => {
+          setNovoMotor({
+            modelo: "",
+            numeroMotor: "",
+            operador: "",
+            observacoes: "",
+            servicosSelecionados: [],
+            valoresServicos: {},
+            nomesPecas: {},
+            lote: "",
+          })
+          setModalNovoMotorAberto(false)
+        }, 100)
+
+        alert("Motor salvo localmente. Erro na sincronização com a nuvem.")
+      }
     } catch (error) {
       console.error("[v0] Erro crítico ao adicionar motor:", error)
 
@@ -558,45 +551,36 @@ export default function Home() {
       data: loteEditandoDados.data, // Manter formato brasileiro
     }
 
-    if (isOnlineMode && supabase && connectionStatus === "online") {
-      try {
-        const dataFormatadaBanco = converterDataBrasileiraParaBanco(loteEditandoDados.data)
-
-        if (!dataFormatadaBanco) {
-          console.error("[v0] Data inválida:", loteEditandoDados.data)
-          return
-        }
-
-        console.log("[v0] Atualizando lote no Supabase:", {
-          nome: loteAtualizado.nome,
-          data_fechamento: dataFormatadaBanco,
-        })
-
+    try {
+      // Atualizar no Supabase se disponível
+      if (supabase && connectionStatus === "online") {
+        const dataFormatada = converterDataBrasileiraParaBanco(loteEditandoDados.data)
         const { error } = await supabase
           .from("lotes")
           .update({
-            nome: loteAtualizado.nome,
-            data_fechamento: dataFormatadaBanco, // Enviar no formato YYYY-MM-DD
+            nome: loteEditandoDados.nome,
+            data_fechamento: dataFormatada,
+            updated_at: new Date().toISOString(),
           })
           .eq("id", loteEditando.id)
 
         if (error) {
-          console.error("[v0] Erro detalhado ao editar lote:", error)
+          console.error("[v0] Erro ao atualizar lote no Supabase:", error)
           throw error
         }
 
-        console.log("[v0] Lote editado com sucesso no Supabase")
-      } catch (error) {
-        console.error("[v0] Erro ao atualizar lote no Supabase:", error)
-        setConnectionStatus("offline")
-        // Continuar com atualização local em caso de erro
+        console.log("[v0] Lote atualizado no Supabase com sucesso")
       }
-    }
 
-    setLotes(lotes.map((l) => (l.id === loteEditando.id ? loteAtualizado : l)))
-    setLoteEditando(null)
-    setLoteEditandoDados({ nome: "", data: "" })
-    setModalEditarLoteAberto(false)
+      setLotes(lotes.map((l) => (l.id === loteEditando.id ? loteAtualizado : l)))
+      setLoteEditando(null)
+      setLoteEditandoDados({ nome: "", data: "" })
+      setModalEditarLoteAberto(false)
+      console.log("[v0] Lote editado no estado local:", loteAtualizado)
+    } catch (error) {
+      console.error("[v0] Erro ao editar lote:", error)
+      alert("Erro ao salvar alterações do lote.")
+    }
   }
 
   const cancelarEdicaoLote = () => {
@@ -653,52 +637,69 @@ export default function Home() {
 
       console.log("[v0] Motor atualizado:", motorAtualizado)
 
-      if (isOnlineMode && supabase && connectionStatus === "online") {
-        try {
-          console.log("[v0] Tentando salvar no Supabase...")
-          const { error: motorError } = await supabase
+      try {
+        // Atualizar no Supabase se disponível
+        if (supabase && connectionStatus === "online") {
+          const { error } = await supabase
             .from("motores")
             .update({
-              operador: motorAtualizado.operador,
-              observacoes: motorAtualizado.observacoes,
+              operador: motorEditandoOperador || "",
+              observacoes: motorEditandoObservacoes || "",
+              servicos: JSON.stringify(servicosAtualizados),
+              updated_at: new Date().toISOString(),
             })
             .eq("id", motorEditando.id)
 
-          if (motorError) {
-            console.error("[v0] Erro do Supabase:", motorError)
-            throw motorError
+          if (error) {
+            console.error("[v0] Erro ao atualizar motor no Supabase:", error)
+            throw error
           }
+
           console.log("[v0] Motor atualizado no Supabase com sucesso")
-        } catch (supabaseError) {
-          console.error("[v0] Erro ao atualizar motor no Supabase:", supabaseError)
-          setConnectionStatus("offline")
-          // Continuar com salvamento local mesmo com erro do Supabase
         }
-      }
 
-      console.log("[v0] Atualizando estado local...")
-      const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
-      setMotores(motoresAtualizados)
+        console.log("[v0] Atualizando estado local...")
+        const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
+        setMotores(motoresAtualizados)
 
-      try {
-        console.log("[v0] Salvando no localStorage...")
+        try {
+          console.log("[v0] Salvando no localStorage...")
+          salvarDadosLocal(lotes, motoresAtualizados)
+          console.log("[v0] Motor editado salvo no localStorage com sucesso")
+        } catch (localStorageError) {
+          console.error("[v0] Erro ao salvar no localStorage:", localStorageError)
+        }
+
+        console.log("[v0] Limpando estados de edição...")
+        setTimeout(() => {
+          setMotorEditando(null)
+          setMotorEditandoServicos([])
+          setMotorEditandoValores({})
+          setMotorEditandoOperador("")
+          setMotorEditandoObservacoes("")
+          setMotorEditandoNomesPecas({})
+          console.log("[v0] Estados de edição limpos - modal fechado")
+        }, 100)
+      } catch (supabaseError) {
+        console.error("[v0] Erro ao salvar no Supabase:", supabaseError)
+
+        // Mesmo com erro no Supabase, salvar localmente
+        console.log("[v0] Salvando apenas localmente devido ao erro no Supabase")
+        const motoresAtualizados = motores.map((m) => (m.id === motorEditando.id ? motorAtualizado : m))
+        setMotores(motoresAtualizados)
         salvarDadosLocal(lotes, motoresAtualizados)
-        console.log("[v0] Motor editado salvo no localStorage com sucesso")
-      } catch (localStorageError) {
-        console.error("[v0] Erro ao salvar no localStorage:", localStorageError)
-        // Mesmo com erro no localStorage, continuar para fechar o modal
-      }
 
-      console.log("[v0] Limpando estados de edição...")
-      setTimeout(() => {
-        setMotorEditando(null)
-        setMotorEditandoServicos([])
-        setMotorEditandoValores({})
-        setMotorEditandoOperador("")
-        setMotorEditandoObservacoes("")
-        setMotorEditandoNomesPecas({})
-        console.log("[v0] Estados de edição limpos - modal fechado")
-      }, 100)
+        setTimeout(() => {
+          setMotorEditando(null)
+          setMotorEditandoServicos([])
+          setMotorEditandoValores({})
+          setMotorEditandoOperador("")
+          setMotorEditandoObservacoes("")
+          setMotorEditandoNomesPecas({})
+        }, 100)
+
+        alert("Motor editado localmente. Erro na sincronização com a nuvem.")
+      }
     } catch (error) {
       console.error("[v0] Erro crítico durante salvamento:", error)
 
@@ -712,7 +713,6 @@ export default function Home() {
         console.log("[v0] Estados limpos após erro - modal fechado forçadamente")
       }, 100)
 
-      // Mostrar erro para o usuário
       alert("Erro ao salvar motor. Verifique o console para mais detalhes.")
     }
   }
@@ -737,44 +737,58 @@ export default function Home() {
   }
 
   const removerLote = async (id: string) => {
-    if (isOnlineMode && supabase && connectionStatus === "online") {
-      try {
+    try {
+      // Remover do Supabase se disponível
+      if (supabase && connectionStatus === "online") {
         const { error } = await supabase.from("lotes").delete().eq("id", id)
 
-        if (error) throw error
-      } catch (error) {
-        console.error("Erro ao remover lote do Supabase:", error)
-        setConnectionStatus("offline")
+        if (error) {
+          console.error("[v0] Erro ao remover lote do Supabase:", error)
+          throw error
+        }
+
+        console.log("[v0] Lote removido do Supabase com sucesso")
       }
+
+      setLotes(lotes.filter((lote) => lote.id !== id))
+      setMotores(motores.filter((motor) => motor.lote !== id))
+
+      // Fechar modal e limpar estados
+      setModalExclusao({ aberto: false, tipo: "lote", id: "", nome: "" })
+      setSenhaExclusao("")
+      setErroSenhaExclusao("")
+      console.log("[v0] Lote removido do estado local")
+    } catch (error) {
+      console.error("[v0] Erro ao remover lote:", error)
+      alert("Erro ao remover lote. Verifique sua conexão.")
     }
-
-    setLotes(lotes.filter((lote) => lote.id !== id))
-    setMotores(motores.filter((motor) => motor.lote !== id))
-
-    // Fechar modal e limpar estados
-    setModalExclusao({ aberto: false, tipo: "lote", id: "", nome: "" })
-    setSenhaExclusao("")
-    setErroSenhaExclusao("")
   }
 
   const removerMotor = async (id: string) => {
-    if (isOnlineMode && supabase && connectionStatus === "online") {
-      try {
+    try {
+      // Remover do Supabase se disponível
+      if (supabase && connectionStatus === "online") {
         const { error } = await supabase.from("motores").delete().eq("id", id)
 
-        if (error) throw error
-      } catch (error) {
-        console.error("Erro ao remover motor do Supabase:", error)
-        setConnectionStatus("offline")
+        if (error) {
+          console.error("[v0] Erro ao remover motor do Supabase:", error)
+          throw error
+        }
+
+        console.log("[v0] Motor removido do Supabase com sucesso")
       }
+
+      setMotores(motores.filter((motor) => motor.id !== id))
+
+      // Fechar modal e limpar estados
+      setModalExclusao({ aberto: false, tipo: "lote", id: "", nome: "" })
+      setSenhaExclusao("")
+      setErroSenhaExclusao("")
+      console.log("[v0] Motor removido do estado local")
+    } catch (error) {
+      console.error("[v0] Erro ao remover motor:", error)
+      alert("Erro ao remover motor. Verifique sua conexão.")
     }
-
-    setMotores(motores.filter((motor) => motor.id !== id))
-
-    // Fechar modal e limpar estados
-    setModalExclusao({ aberto: false, tipo: "lote", id: "", nome: "" })
-    setSenhaExclusao("")
-    setErroSenhaExclusao("")
   }
 
   const abrirModalExclusao = (tipo: "lote" | "motor", id: string, nome: string) => {

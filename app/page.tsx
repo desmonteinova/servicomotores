@@ -462,7 +462,7 @@ export default function Home() {
 
           if (error) {
             console.error("[v0] Erro ao salvar motor no Supabase:", error)
-            console.log("[v0] Continuando com salvamento local devido ao erro no Supabase")
+            console.log("[v0]Continuing with salvamento local devido ao erro no Supabase")
           } else {
             motor.id = supabaseData.id
             console.log("[v0] Motor salvo no Supabase com sucesso:", supabaseData)
@@ -663,7 +663,7 @@ export default function Home() {
 
           if (error) {
             console.error("[v0] Erro ao atualizar motor no Supabase:", error)
-            console.log("[v0]Continuing with salvamento local devido ao erro no Supabase")
+            console.log("[v0]Continuando com salvamento local devido ao erro no Supabase")
           } else {
             console.log("[v0] Motor atualizado no Supabase com sucesso")
           }
@@ -675,15 +675,13 @@ export default function Home() {
         salvarDadosLocal(lotes, motoresAtualizados)
 
         console.log("[v0] Limpando estados de edição...")
-        setTimeout(() => {
-          setMotorEditando(null)
-          setMotorEditandoServicos([])
-          setMotorEditandoValores({})
-          setMotorEditandoOperador("")
-          setMotorEditandoObservacoes("")
-          setMotorEditandoNomesPecas({})
-          console.log("[v0] Estados de edição limpos - modal fechado")
-        }, 100)
+        setMotorEditando(null)
+        setMotorEditandoServicos([])
+        setMotorEditandoValores({})
+        setMotorEditandoOperador("")
+        setMotorEditandoObservacoes("")
+        setMotorEditandoNomesPecas({})
+        console.log("[v0] Estados de edição limpos - modal fechado")
 
         if (connectionStatus !== "online") {
           alert("Motor editado localmente. Dados serão sincronizados quando a conexão for restabelecida.")
@@ -696,19 +694,17 @@ export default function Home() {
         setMotores(motoresAtualizados)
         salvarDadosLocal(lotes, motoresAtualizados)
 
-        setTimeout(() => {
-          setMotorEditando(null)
-          setMotorEditandoServicos([])
-          setMotorEditandoValores({})
-          setMotorEditandoOperador("")
-          setMotorEditandoObservacoes("")
-          setMotorEditandoNomesPecas({})
-        }, 100)
+        setMotorEditando(null)
+        setMotorEditandoServicos([])
+        setMotorEditandoValores({})
+        setMotorEditandoOperador("")
+        setMotorEditandoObservacoes("")
+        setMotorEditandoNomesPecas({})
 
         alert("Motor editado localmente. Erro na sincronização com a nuvem.")
       }
     } catch (error) {
-      console.error("[v0] Erro crítico durante salvamento:", error)
+      console.error("[v0] Erro crítico ao editar motor:", error)
 
       try {
         const servicosAtualizados = motorEditandoServicos.map((tipo) => {
@@ -717,9 +713,11 @@ export default function Home() {
             tipo,
             valor: isNaN(valor) ? 0 : valor,
           }
+
           if (tipo === "Peças adicionais" && motorEditandoNomesPecas[tipo]) {
             servicoObj.nomePeca = motorEditandoNomesPecas[tipo]
           }
+
           return servicoObj
         })
 
@@ -734,30 +732,17 @@ export default function Home() {
         setMotores(motoresAtualizados)
         salvarDadosLocal(lotes, motoresAtualizados)
 
-        setTimeout(() => {
-          setMotorEditando(null)
-          setMotorEditandoServicos([])
-          setMotorEditandoValores({})
-          setMotorEditandoOperador("")
-          setMotorEditandoObservacoes("")
-          setMotorEditandoNomesPecas({})
-        }, 100)
+        setMotorEditando(null)
+        setMotorEditandoServicos([])
+        setMotorEditandoValores({})
+        setMotorEditandoOperador("")
+        setMotorEditandoObservacoes("")
+        setMotorEditandoNomesPecas({})
 
         alert("Motor editado localmente. Erro na sincronização com a nuvem.")
       } catch (localError) {
         console.error("[v0] Erro crítico ao salvar localmente:", localError)
-
-        setTimeout(() => {
-          setMotorEditando(null)
-          setMotorEditandoServicos([])
-          setMotorEditandoValores({})
-          setMotorEditandoOperador("")
-          setMotorEditandoObservacoes("")
-          setMotorEditandoNomesPecas({})
-          console.log("[v0] Estados limpos após erro - modal fechado forçadamente")
-        }, 100)
-
-        alert("Erro crítico ao salvar motor. Verifique o console para mais detalhes.")
+        alert("Erro ao salvar alterações do motor.")
       }
     }
   }
@@ -811,28 +796,50 @@ export default function Home() {
 
   const removerMotor = async (id: string) => {
     try {
-      // Remover do Supabase se disponível
+      console.log("[v0] Iniciando remoção do motor:", id)
+
       if (supabase && connectionStatus === "online") {
         const { error } = await supabase.from("motores").delete().eq("id", id)
 
         if (error) {
           console.error("[v0] Erro ao remover motor do Supabase:", error)
-          throw error
+          console.log("[v0]Continuing with remoção local devido ao erro no Supabase")
+        } else {
+          console.log("[v0] Motor removido do Supabase com sucesso")
         }
-
-        console.log("[v0] Motor removido do Supabase com sucesso")
       }
 
-      setMotores(motores.filter((motor) => motor.id !== id))
+      // Sempre remover do estado local
+      const novosMotores = motores.filter((motor) => motor.id !== id)
+      setMotores(novosMotores)
+      salvarDadosLocal(lotes, novosMotores)
 
       // Fechar modal e limpar estados
       setModalExclusao({ aberto: false, tipo: "lote", id: "", nome: "" })
       setSenhaExclusao("")
       setErroSenhaExclusao("")
-      console.log("[v0] Motor removido do estado local")
+      console.log("[v0] Motor removido com sucesso")
+
+      if (connectionStatus !== "online") {
+        alert("Motor removido localmente. Alteração será sincronizada quando a conexão for restabelecida.")
+      }
     } catch (error) {
       console.error("[v0] Erro ao remover motor:", error)
-      alert("Erro ao remover motor. Verifique sua conexão.")
+
+      try {
+        const novosMotores = motores.filter((motor) => motor.id !== id)
+        setMotores(novosMotores)
+        salvarDadosLocal(lotes, novosMotores)
+
+        setModalExclusao({ aberto: false, tipo: "lote", id: "", nome: "" })
+        setSenhaExclusao("")
+        setErroSenhaExclusao("")
+
+        alert("Motor removido localmente. Erro na sincronização com a nuvem.")
+      } catch (localError) {
+        console.error("[v0] Erro crítico ao remover localmente:", localError)
+        alert("Erro ao remover motor.")
+      }
     }
   }
 

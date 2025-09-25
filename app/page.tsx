@@ -457,7 +457,7 @@ export default function Home() {
               operador: novoMotor.operador,
               observacoes: novoMotor.observacoes,
               lote_id: novoMotor.lote,
-              data_entrada: dataFormatada,
+              data_entrada: dataFormatada, // Campo correto conforme tabela
               servicos: JSON.stringify(servicos),
             })
             .select()

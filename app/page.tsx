@@ -448,7 +448,6 @@ export default function Home() {
       try {
         // Salvar no Supabase se disponível
         if (supabase && connectionStatus === "online") {
-          const dataFormatada = converterDataBrasileiraParaBanco(dataEntrada)
           const { data: supabaseData, error } = await supabase
             .from("motores")
             .insert({
@@ -457,7 +456,6 @@ export default function Home() {
               operador: novoMotor.operador,
               observacoes: novoMotor.observacoes,
               lote_id: novoMotor.lote,
-              data_entrada: dataFormatada, // Campo correto conforme tabela
               servicos: JSON.stringify(servicos),
             })
             .select()

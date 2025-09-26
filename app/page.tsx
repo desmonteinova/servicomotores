@@ -452,7 +452,6 @@ export default function Home() {
       salvarDadosLocal(lotes, novosMotores)
       console.log("[v0] Motor salvo localmente com sucesso")
 
-      // Tentar salvar no Supabase em segundo plano
       try {
         if (supabase && connectionStatus === "online") {
           const { data: supabaseData, error } = await supabase
@@ -463,7 +462,7 @@ export default function Home() {
               operador: novoMotor.operador,
               observacoes: novoMotor.observacoes,
               lote_id: novoMotor.lote,
-              servicos: JSON.stringify(servicos), // Adicionado para salvar os serviços
+              // Removido servicos temporariamente até resolver problema do schema
             })
             .select()
             .single()

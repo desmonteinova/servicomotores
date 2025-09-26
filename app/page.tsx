@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTrigger, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Edit, Trash2, FileText, Search, Wifi, WifiOff, Database, X, TrendingUp, Eye } from "lucide-react"
 import SetupGuide from "@/components/setup-guide"
@@ -125,6 +124,7 @@ export default function Home() {
 
   const [filtroNumeroMotor, setFiltroNumeroMotor] = useState("")
   const [filtroModeloVeiculo, setFiltroModeloVeiculo] = useState("")
+  const [filtroOperador, setFiltroOperador] = useState("")
 
   const [loteMotoresVisivel, setLoteMotoresVisivel] = useState<string | null>(null)
 
@@ -823,7 +823,8 @@ export default function Home() {
         filtroNumeroMotor === "" || motor.numeroMotor.toLowerCase().includes(filtroNumeroMotor.toLowerCase())
       const matchModeloVeiculo =
         filtroModeloVeiculo === "" || motor.modelo.toLowerCase().includes(filtroModeloVeiculo.toLowerCase())
-      return matchNumeroMotor && matchModeloVeiculo
+      const matchOperador = filtroOperador === "" || motor.operador.toLowerCase().includes(filtroOperador.toLowerCase())
+      return matchNumeroMotor && matchModeloVeiculo && matchOperador
     })
     .sort((a, b) => {
       return Number.parseInt(b.id) - Number.parseInt(a.id)
@@ -837,46 +838,54 @@ export default function Home() {
   const limparFiltros = () => {
     setFiltroNumeroMotor("")
     setFiltroModeloVeiculo("")
+    setFiltroOperador("")
     setPaginaAtual(1) // Reset página ao limpar filtros
   }
 
-  const temFiltrosAtivos = filtroNumeroMotor !== "" || filtroModeloVeiculo !== ""
+  const temFiltrosAtivos = filtroNumeroMotor !== "" || filtroModeloVeiculo !== "" || filtroOperador !== ""
 
-  const toggleServicoNovoMotor = (servico: string, checked: boolean) => {
-    if (checked) {
-      setNovoMotor({
-        ...novoMotor,
-        servicosSelecionados: [...novoMotor.servicosSelecionados, servico],
-      })
-    } else {
-      setNovoMotor({
-        ...novoMotor,
-        servicosSelecionados: novoMotor.servicosSelecionados.filter((s) => s !== servico),
-        valoresServicos: {
-          ...novoMotor.valoresServicos,
-          [servico]: "",
-        },
-        nomesPecas: {
-          // Limpar nome da peça ao desmarcar serviço
-          ...novoMotor.nomesPecas,
-          [servico]: "",
-        },
-      })
-    }
+  const adicionarServicoNovoMotor = (servico: string) => {
+    setNovoMotor({
+      ...novoMotor,
+      servicosSelecionados: [...novoMotor.servicosSelecionados, servico],
+    })
   }
 
-  const toggleServicoEdicao = (servico: string, checked: boolean) => {
-    if (checked) {
-      setMotorEditandoServicos([...motorEditandoServicos, servico])
-    } else {
-      setMotorEditandoServicos(motorEditandoServicos.filter((s) => s !== servico))
-      const novosValores = { ...motorEditandoValores }
-      const novosNomesPecas = { ...motorEditandoNomesPecas } // Limpar nome da peça ao desmarcar na edição
-      delete novosValores[servico]
-      delete novosNomesPecas[servico] // Remover nome da peça
-      setMotorEditandoValores(novosValores)
-      setMotorEditandoNomesPecas(novosNomesPecas) // Atualizar estado dos nomes das peças
-    }
+  const removerServicoNovoMotor = (index: number) => {
+    const novosServicos = [...novoMotor.servicosSelecionados]
+    novosServicos.splice(index, 1)
+
+    const novosValores = { ...novoMotor.valoresServicos }
+    const novosNomesPecas = { ...novoMotor.nomesPecas }
+
+    delete novosValores[`${index}`]
+    delete novosNomesPecas[`${index}`]
+
+    setNovoMotor({
+      ...novoMotor,
+      servicosSelecionados: novosServicos,
+      valoresServicos: novosValores,
+      nomesPecas: novosNomesPecas,
+    })
+  }
+
+  const adicionarServicoEdicao = (servico: string) => {
+    setMotorEditandoServicos([...motorEditandoServicos, servico])
+  }
+
+  const removerServicoEdicao = (index: number) => {
+    const novosServicos = [...motorEditandoServicos]
+    novosServicos.splice(index, 1)
+
+    const novosValores = { ...motorEditandoValores }
+    const novosNomesPecas = { ...motorEditandoNomesPecas }
+
+    delete novosValores[`${index}`]
+    delete novosNomesPecas[`${index}`]
+
+    setMotorEditandoServicos(novosServicos)
+    setMotorEditandoValores(novosValores)
+    setMotorEditandoNomesPecas(novosNomesPecas)
   }
 
   const imprimirRelatorioLote = (loteId: string) => {
@@ -1087,7 +1096,7 @@ export default function Home() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <Label htmlFor="filtro-numero">Número do Motor</Label>
                 <Input
@@ -1112,6 +1121,18 @@ export default function Home() {
                   placeholder="Ex: Honda, Toyota..."
                 />
               </div>
+              <div>
+                <Label htmlFor="filtro-operador">Operador</Label>
+                <Input
+                  id="filtro-operador"
+                  value={filtroOperador}
+                  onChange={(e) => {
+                    setFiltroOperador(e.target.value)
+                    setPaginaAtual(1) // Reset página ao filtrar
+                  }}
+                  placeholder="Ex: João, Maria..."
+                />
+              </div>
               <div className="flex items-end">
                 <Button
                   variant="outline"
@@ -1130,6 +1151,7 @@ export default function Home() {
                   <span className="font-medium">Filtros ativos:</span>
                   {filtroNumeroMotor && <Badge variant="secondary">Número: {filtroNumeroMotor}</Badge>}
                   {filtroModeloVeiculo && <Badge variant="secondary">Modelo: {filtroModeloVeiculo}</Badge>}
+                  {filtroOperador && <Badge variant="secondary">Operador: {filtroOperador}</Badge>}
                   <span className="text-muted-foreground">• {motoresFiltrados.length} resultado(s) encontrado(s)</span>
                 </div>
               </div>
@@ -1497,57 +1519,78 @@ export default function Home() {
 
                           <div>
                             <Label>Serviços</Label>
-                            <div className="grid grid-cols-1 gap-3 mt-2 max-h-80 overflow-y-auto custom-scrollbar border rounded-lg p-3">
-                              {tiposServicos.map((servico) => (
-                                <div key={servico} className="space-y-2">
-                                  <div className="flex items-center space-x-2">
-                                    <Checkbox
-                                      id={`servico-${servico}`}
-                                      checked={novoMotor.servicosSelecionados.includes(servico)}
-                                      onCheckedChange={(checked) => toggleServicoNovoMotor(servico, checked as boolean)}
-                                    />
-                                    <Label htmlFor={`servico-${servico}`} className="text-sm">
-                                      {servico}
-                                    </Label>
+                            <div className="space-y-3 mt-2">
+                              <div className="flex gap-2">
+                                <Select onValueChange={(value) => adicionarServicoNovoMotor(value)}>
+                                  <SelectTrigger className="flex-1">
+                                    <SelectValue placeholder="Selecione um serviço para adicionar" />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-60">
+                                    {tiposServicos.map((servico) => (
+                                      <SelectItem key={servico} value={servico}>
+                                        {servico}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {novoMotor.servicosSelecionados.length > 0 && (
+                                <div className="border rounded-lg p-3 max-h-80 overflow-y-auto custom-scrollbar">
+                                  <div className="text-sm font-medium mb-3">Serviços Selecionados:</div>
+                                  <div className="space-y-3">
+                                    {novoMotor.servicosSelecionados.map((servico, index) => (
+                                      <div key={index} className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+                                        <div className="flex-1">
+                                          <div className="font-medium text-sm mb-2">{servico}</div>
+                                          <div className="flex gap-2">
+                                            <Input
+                                              type="number"
+                                              placeholder="Valor (R$)"
+                                              value={novoMotor.valoresServicos[`${index}`] || ""}
+                                              onChange={(e) =>
+                                                setNovoMotor({
+                                                  ...novoMotor,
+                                                  valoresServicos: {
+                                                    ...novoMotor.valoresServicos,
+                                                    [`${index}`]: e.target.value,
+                                                  },
+                                                })
+                                              }
+                                              className="w-32"
+                                            />
+                                            {servico === "Peças adicionais" && (
+                                              <Input
+                                                type="text"
+                                                placeholder="Nome da peça"
+                                                value={novoMotor.nomesPecas[`${index}`] || ""}
+                                                onChange={(e) =>
+                                                  setNovoMotor({
+                                                    ...novoMotor,
+                                                    nomesPecas: {
+                                                      ...novoMotor.nomesPecas,
+                                                      [`${index}`]: e.target.value,
+                                                    },
+                                                  })
+                                                }
+                                                className="w-48"
+                                              />
+                                            )}
+                                          </div>
+                                        </div>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => removerServicoNovoMotor(index)}
+                                          className="text-destructive hover:text-destructive"
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ))}
                                   </div>
-                                  {novoMotor.servicosSelecionados.includes(servico) && (
-                                    <div className="ml-6 space-y-2">
-                                      <Input
-                                        type="number"
-                                        placeholder="Valor (R$)"
-                                        value={novoMotor.valoresServicos[servico] || ""}
-                                        onChange={(e) =>
-                                          setNovoMotor({
-                                            ...novoMotor,
-                                            valoresServicos: {
-                                              ...novoMotor.valoresServicos,
-                                              [servico]: e.target.value,
-                                            },
-                                          })
-                                        }
-                                        className="w-32"
-                                      />
-                                      {servico === "Peças adicionais" && ( // Campo adicional para nome da peça
-                                        <Input
-                                          type="text"
-                                          placeholder="Nome da peça"
-                                          value={novoMotor.nomesPecas[servico] || ""}
-                                          onChange={(e) =>
-                                            setNovoMotor({
-                                              ...novoMotor,
-                                              nomesPecas: {
-                                                ...novoMotor.nomesPecas,
-                                                [servico]: e.target.value,
-                                              },
-                                            })
-                                          }
-                                          className="w-48"
-                                        />
-                                      )}
-                                    </div>
-                                  )}
                                 </div>
-                              ))}
+                              )}
                             </div>
                           </div>
 
@@ -1676,53 +1719,75 @@ export default function Home() {
 
                                     <div>
                                       <Label>Serviços</Label>
-                                      <div className="grid grid-cols-1 gap-3 mt-2 max-h-80 overflow-y-auto custom-scrollbar border rounded-lg p-3">
-                                        {tiposServicos.map((servico) => (
-                                          <div key={servico} className="space-y-2">
-                                            <div className="flex items-center space-x-2">
-                                              <Checkbox
-                                                id={`edit-servico-${servico}`}
-                                                checked={motorEditandoServicos.includes(servico)}
-                                                onCheckedChange={(checked) =>
-                                                  toggleServicoEdicao(servico, checked as boolean)
-                                                }
-                                              />
-                                              <Label htmlFor={`edit-servico-${servico}`} className="text-sm">
-                                                {servico}
-                                              </Label>
+                                      <div className="space-y-3 mt-2">
+                                        <div className="flex gap-2">
+                                          <Select onValueChange={(value) => adicionarServicoEdicao(value)}>
+                                            <SelectTrigger className="flex-1">
+                                              <SelectValue placeholder="Selecione um serviço para adicionar" />
+                                            </SelectTrigger>
+                                            <SelectContent className="max-h-60">
+                                              {tiposServicos.map((servico) => (
+                                                <SelectItem key={servico} value={servico}>
+                                                  {servico}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+
+                                        {motorEditandoServicos.length > 0 && (
+                                          <div className="border rounded-lg p-3 max-h-80 overflow-y-auto custom-scrollbar">
+                                            <div className="text-sm font-medium mb-3">Serviços Selecionados:</div>
+                                            <div className="space-y-3">
+                                              {motorEditandoServicos.map((servico, index) => (
+                                                <div
+                                                  key={index}
+                                                  className="flex items-start gap-3 p-3 bg-muted rounded-lg"
+                                                >
+                                                  <div className="flex-1">
+                                                    <div className="font-medium text-sm mb-2">{servico}</div>
+                                                    <div className="flex gap-2">
+                                                      <Input
+                                                        type="number"
+                                                        placeholder="Valor (R$)"
+                                                        value={motorEditandoValores[`${index}`] || ""}
+                                                        onChange={(e) =>
+                                                          setMotorEditandoValores({
+                                                            ...motorEditandoValores,
+                                                            [`${index}`]: e.target.value,
+                                                          })
+                                                        }
+                                                        className="w-32"
+                                                      />
+                                                      {servico === "Peças adicionais" && (
+                                                        <Input
+                                                          type="text"
+                                                          placeholder="Nome da peça"
+                                                          value={motorEditandoNomesPecas[`${index}`] || ""}
+                                                          onChange={(e) =>
+                                                            setMotorEditandoNomesPecas({
+                                                              ...motorEditandoNomesPecas,
+                                                              [`${index}`]: e.target.value,
+                                                            })
+                                                          }
+                                                          className="w-48"
+                                                        />
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => removerServicoEdicao(index)}
+                                                    className="text-destructive hover:text-destructive"
+                                                  >
+                                                    <X className="h-4 w-4" />
+                                                  </Button>
+                                                </div>
+                                              ))}
                                             </div>
-                                            {motorEditandoServicos.includes(servico) && (
-                                              <div className="ml-6 space-y-2">
-                                                <Input
-                                                  type="number"
-                                                  placeholder="Valor (R$)"
-                                                  value={motorEditandoValores[servico] || ""}
-                                                  onChange={(e) =>
-                                                    setMotorEditandoValores({
-                                                      ...motorEditandoValores,
-                                                      [servico]: e.target.value,
-                                                    })
-                                                  }
-                                                  className="w-32"
-                                                />
-                                                {servico === "Peças adicionais" && ( // Campo adicional para nome da peça na edição
-                                                  <Input
-                                                    type="text"
-                                                    placeholder="Nome da peça"
-                                                    value={motorEditandoNomesPecas[servico] || ""}
-                                                    onChange={(e) =>
-                                                      setMotorEditandoNomesPecas({
-                                                        ...motorEditandoNomesPecas,
-                                                        [servico]: e.target.value,
-                                                      })
-                                                    }
-                                                    className="w-48"
-                                                  />
-                                                )}
-                                              </div>
-                                            )}
                                           </div>
-                                        ))}
+                                        )}
                                       </div>
                                     </div>
 

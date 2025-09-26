@@ -476,7 +476,7 @@ export default function Home() {
               operador: novoMotor.operador,
               observacoes: novoMotor.observacoes,
               lote_id: novoMotor.lote,
-              // Removido servicos temporariamente até resolver problema do schema
+              servicos: JSON.stringify(servicos), // Reativado salvamento de serviços
             })
             .select()
             .single()
@@ -651,9 +651,9 @@ export default function Home() {
               operador: motorEditandoOperador || "",
               observacoes: motorEditandoObservacoes || "",
               servicos: JSON.stringify(servicosAtualizados),
-              updated_at: new Date().toISOString(),
+              // Removido updated_at - o banco atualiza automaticamente
             })
-            .eq("id", motorEditando.id)
+            .eq("codigo", motorEditando.numeroMotor) // Usando codigo ao invés de id
 
           if (error) {
             console.error("[v0] Erro ao atualizar motor no Supabase:", error)

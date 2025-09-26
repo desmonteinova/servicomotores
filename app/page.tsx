@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { supabase, isSupabaseConfigured, testSupabaseConnection } from "@/lib/supabase"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
@@ -181,19 +183,26 @@ export default function Home() {
     }
   }
 
-  const importData = (data: any) => {
-    if (data.lotes && data.motores) {
-      setLotes(data.lotes)
-      setMotores(data.motores)
+  const importarDados = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target?.result as string)
+          setLotes(data.lotes || [])
+          setMotores(data.motores || [])
 
-      // Salvar no localStorage
-      localStorage.setItem("inova-lotes", JSON.stringify(data.lotes))
-      localStorage.setItem("inova-motores", JSON.stringify(data.motores))
+          // Salvar no localStorage imediatamente
+          localStorage.setItem("inova-lotes", JSON.stringify(data.lotes || []))
+          localStorage.setItem("inova-motores", JSON.stringify(data.motores || []))
 
-      // Recarregar página para aplicar mudanças
-      setTimeout(() => {
-        window.location.reload()
-      }, 1000)
+          alert("Dados importados com sucesso!")
+        } catch (error) {
+          alert("Erro ao importar dados. Verifique se o arquivo está no formato correto.")
+        }
+      }
+      reader.readAsText(file)
     }
   }
 
@@ -316,8 +325,13 @@ export default function Home() {
   }
 
   const salvarDadosLocal = (novosLotes: Lote[], novosMotores: Motor[]) => {
-    localStorage.setItem("inova-lotes", JSON.stringify(novosLotes))
-    localStorage.setItem("inova-motores", JSON.stringify(novosMotores))
+    try {
+      localStorage.setItem("inova-lotes", JSON.stringify(novosLotes))
+      localStorage.setItem("inova-motores", JSON.stringify(novosMotores))
+      console.log("[v0] Dados salvos localmente com sucesso")
+    } catch (error) {
+      console.error("[v0] Erro ao salvar dados localmente:", error)
+    }
   }
 
   useEffect(() => {
@@ -347,10 +361,10 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    if (!isLoading && connectionStatus === "offline") {
+    if (!isLoading && (lotes.length > 0 || motores.length > 0)) {
       salvarDadosLocal(lotes, motores)
     }
-  }, [lotes, motores, isLoading, connectionStatus])
+  }, [lotes, motores, isLoading])
 
   const totalMotores = motores.length
   const totalGasto = motores.reduce(

@@ -866,13 +866,14 @@ export default function Home() {
 
   const removerServicoNovoMotor = (index: number) => {
     const novosServicos = [...novoMotor.servicosSelecionados]
+    const servicoRemovido = novosServicos[index] // Capturar o nome do serviço antes de remover
     novosServicos.splice(index, 1)
 
     const novosValores = { ...novoMotor.valoresServicos }
     const novosNomesPecas = { ...novoMotor.nomesPecas }
 
-    delete novosValores[`${index}`]
-    delete novosNomesPecas[`${index}`]
+    delete novosValores[servicoRemovido]
+    delete novosNomesPecas[servicoRemovido]
 
     setNovoMotor({
       ...novoMotor,
@@ -893,8 +894,11 @@ export default function Home() {
     const novosValores = { ...motorEditandoValores }
     const novosNomesPecas = { ...motorEditandoNomesPecas }
 
-    delete novosValores[`${index}`]
-    delete novosNomesPecas[`${index}`]
+    // A chave para valores e nomesPecas na edição também deve ser o nome do serviço
+    // Precisamos encontrar o nome do serviço correspondente ao índice
+    const servicoRemovido = motorEditandoServicos[index]
+    delete novosValores[servicoRemovido]
+    delete novosNomesPecas[servicoRemovido]
 
     setMotorEditandoServicos(novosServicos)
     setMotorEditandoValores(novosValores)
@@ -1560,13 +1564,13 @@ export default function Home() {
                                             <Input
                                               type="number"
                                               placeholder="Valor (R$)"
-                                              value={novoMotor.valoresServicos[`${index}`] || ""}
+                                              value={novoMotor.valoresServicos[servico] || ""} // Usar nome do serviço como chave
                                               onChange={(e) =>
                                                 setNovoMotor({
                                                   ...novoMotor,
                                                   valoresServicos: {
                                                     ...novoMotor.valoresServicos,
-                                                    [`${index}`]: e.target.value,
+                                                    [servico]: e.target.value, // Usar nome do serviço como chave
                                                   },
                                                 })
                                               }
@@ -1576,17 +1580,17 @@ export default function Home() {
                                               <Input
                                                 type="text"
                                                 placeholder="Nome da peça"
-                                                value={novoMotor.nomesPecas[`${index}`] || ""}
+                                                value={novoMotor.nomesPecas[servico] || ""} // Usar nome do serviço como chave
                                                 onChange={(e) =>
                                                   setNovoMotor({
                                                     ...novoMotor,
                                                     nomesPecas: {
                                                       ...novoMotor.nomesPecas,
-                                                      [`${index}`]: e.target.value,
+                                                      [servico]: e.target.value, // Usar nome do serviço como chave
                                                     },
                                                   })
                                                 }
-                                                className="w-48"
+                                                className="flex-1"
                                               />
                                             )}
                                           </div>
@@ -1763,11 +1767,11 @@ export default function Home() {
                                                       <Input
                                                         type="number"
                                                         placeholder="Valor (R$)"
-                                                        value={motorEditandoValores[`${index}`] || ""}
+                                                        value={motorEditandoValores[servico] || ""} // Usar nome do serviço como chave
                                                         onChange={(e) =>
                                                           setMotorEditandoValores({
                                                             ...motorEditandoValores,
-                                                            [`${index}`]: e.target.value,
+                                                            [servico]: e.target.value, // Usar nome do serviço como chave
                                                           })
                                                         }
                                                         className="w-32"
@@ -1776,14 +1780,14 @@ export default function Home() {
                                                         <Input
                                                           type="text"
                                                           placeholder="Nome da peça"
-                                                          value={motorEditandoNomesPecas[`${index}`] || ""}
+                                                          value={motorEditandoNomesPecas[servico] || ""} // Usar nome do serviço como chave
                                                           onChange={(e) =>
                                                             setMotorEditandoNomesPecas({
                                                               ...motorEditandoNomesPecas,
-                                                              [`${index}`]: e.target.value,
+                                                              [servico]: e.target.value, // Usar nome do serviço como chave
                                                             })
                                                           }
-                                                          className="w-48"
+                                                          className="flex-1"
                                                         />
                                                       )}
                                                     </div>
